@@ -1,0 +1,45 @@
+[project]
+name = "melo-messagey-utils"
+version = "0.1.0"
+authors = [
+    { name = "Edmilson Rodrigues", email = "edmilson.rodriguesn38@gmail.com" },
+]
+description = "Common utilities for messaging (Kafka)"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "GPL-3.0-or-later" }
+dependencies = [
+    "kafka-python>=2.1.5",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "ruff>=0.11.5",
+]
+test = [
+    "pytest>=8.3.5",
+    "testcontainers[kafka]>=4.10.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["test"]
+addopts = ["-vvv"]
+
+
+
+[tool.ruff]
+line-length = 79
+preview = true
+
+[tool.ruff.lint]
+select = ["UP", "F", "W", "E", "I"]
+
+[tool.ruff.format]
+quote-style="single"
+
+[tool.mypy]
+ignore_missing_imports = true
+mypy_path = ["src"]
+python_version = "3.13"
