@@ -31,14 +31,17 @@ jobs:
         - name: Run Linting
           run: |
             cd src/common_utils/messagery
+            source .venv/bin/activate
             make lint
 
         - name: Run Mypy
           run: |
             cd src/common_utils/messagery
+            source .venv/bin/activate
             make mypy
 
         - name: Run Unit Tests
           run: |
             cd src/common_utils/messagery
+            source .venv/bin/activate
             make unit-test
