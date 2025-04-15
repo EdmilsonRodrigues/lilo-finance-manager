@@ -3,7 +3,7 @@ name: Run Integration Tests
 on:
   push:
     branches-ignore:
-        - '*/'
+        - '*/*'
   pull_request:
 
 jobs:
@@ -30,6 +30,7 @@ jobs:
           run: |
             cd src/common_utils/messagery
             uv sync --group test
+            source .venv/bin/activate
 
         - name: Run Integration Tests
           run: |
