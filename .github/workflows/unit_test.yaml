@@ -26,7 +26,6 @@ jobs:
           run: |
             cd src/common_utils/messagery
             uv sync --all-groups
-            source .venv/bin/activate
 
         - name: Run Linting
           run: |
