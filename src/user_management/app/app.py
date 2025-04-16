@@ -19,9 +19,11 @@ def get_app(db_uri: str, test: bool = False):
     return app
 
 
-
-
 if __name__ == '__main__':
     from app.config import DATABASE_URI
+
+    if DATABASE_URI is None:
+        raise ValueError('DATABASE_URI is not set')
+
     app = get_app(DATABASE_URI)
     app.run(debug=True)
