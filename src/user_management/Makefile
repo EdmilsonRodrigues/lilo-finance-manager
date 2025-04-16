@@ -19,7 +19,7 @@ integration-test:
 
 .PHONY: unit-test
 unit-test:
-	python -m unittest discover -p 'test_*.py' -s test
+	python -m unittest discover -p 'test_*.py' -s test/unit
 
 .PHONY: dev-test
 dev-test: lint mypy test

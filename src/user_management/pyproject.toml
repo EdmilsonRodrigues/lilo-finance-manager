@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "flask>=3.1.0",
+    "flask-sqlalchemy>=3.1.1",
     "python-dotenv>=1.1.0",
 ]
 
@@ -14,6 +15,8 @@ dev = [
     "mypy>=1.15.0",
     "ruff>=0.11.5",
 ]
+
+test = []
 
 [tool.ruff]
 line-length = 79
