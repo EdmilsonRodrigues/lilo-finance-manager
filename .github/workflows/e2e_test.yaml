@@ -1,20 +1,20 @@
-name: Run Integration Tests
+name: Run End To End Tests
 
 on:
   push:
     branches-ignore:
         - '*/*'
+        - '*-dev'
   pull_request:
 
 jobs:
-    test-integration:
-        name: Run Integration Tests on ${{ matrix.service }}
+    test-e2e:
+        name: Run End To End Tests on ${{ matrix.service }}
         runs-on: ubuntu-latest
         strategy:
           matrix:
             service:
-              - common_utils/messagery
-              - user_management
+            - user_management
         steps:
         - uses: actions/checkout@v4
 
@@ -33,7 +33,7 @@ jobs:
           with:
             version: latest
             enable-cache: true
-            cache-suffix: "integration-${{ matrix.service }}"
+            cache-suffix: "e2e-${{ matrix.service }}"
             cache-dependency-glob: "${{ steps.service_path.outputs.base_path }}/uv.lock"
 
         - name: Sync dependencies
@@ -41,8 +41,8 @@ jobs:
             cd "${{ steps.service_path.outputs.base_path }}"
             uv sync --group test
 
-        - name: Run Integration Tests
+        - name: Run End To End Tests
           run: |
             cd "${{ steps.service_path.outputs.base_path }}"
             source .venv/bin/activate
-            make integration-test
+            make e2e-test
