@@ -7,3 +7,4 @@ env_path = Path('env')
 load_dotenv(dotenv_path=env_path)
 
 SECRET_KEY = os.getenv('MELO_SECRET_KEY', os.urandom(32))
+DATABASE_URI = os.getenv('MELO_SQLALCHEMY_DATABASE_URI')
