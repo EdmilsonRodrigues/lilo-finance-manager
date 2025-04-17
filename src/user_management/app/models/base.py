@@ -1,0 +1,115 @@
+from dataclasses import dataclass
+from functools import singledispatchmethod
+from typing import Any, Self
+
+from app.models.errors import ApplicationError, NotFoundException
+from app.sessions import db
+
+
+class BaseModel(db.Model):  # type: ignore
+    __abstract__ = True
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=db.func.now())
+    updated_at = db.Column(
+        db.DateTime, default=db.func.now(), onupdate=db.func.now()
+    )
+
+    def create(self) -> Self:
+        """
+        Creates the model instance in the database.
+
+        :return: The newly created model instance with an id.
+        """
+        db.session.add(self)
+        db.session.commit()
+        return self
+
+    @classmethod
+    def update(cls, id: int, fields: dict[str, Any]) -> Self:
+        cls.query.filter_by(id=id).update(fields)
+        db.session.commit()
+        return cls.get_one(id)
+
+    @classmethod
+    def delete(cls, id: int) -> None:
+        cls.query.filter_by(id=id).delete()
+        db.session.commit()
+
+    @classmethod
+    def get_one(cls, id: int) -> Self:
+        obj = cls.query.get(id)
+        if obj is None:
+            raise NotFoundException(f'{cls.__name__} not found')
+        return obj
+
+    @classmethod
+    def get_many(cls, filters: dict[str, Any] = {}) -> list[Self]:
+        return cls.query.filter_by(**filters).all()
+
+
+@dataclass
+class BaseClass:
+    id: int
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_model(cls, model: BaseModel):
+        return cls(**{
+            field: value
+            for field, value in vars(model).items()
+            if (not field.startswith('_'))
+            and not callable(value)
+            and field in cls.__dataclass_fields__.keys()
+        })
+
+
+@dataclass
+class ErrorResponse:
+    @dataclass
+    class ErrorDetail:
+        status: int
+        message: str
+
+    details: ErrorDetail
+
+    @singledispatchmethod
+    @classmethod
+    def from_exception(cls, exception: Exception):
+        return vars(
+            cls(
+                details=cls.ErrorDetail(
+                    status=500,
+                    message=str(exception),
+                )
+            )
+        ), 500
+
+    @from_exception.register
+    @classmethod
+    def _(cls, exception: ApplicationError):
+        return vars(
+            cls(
+                details=cls.ErrorDetail(
+                    status=exception.status_code,
+                    message=exception.args[0],
+                )
+            )
+        ), exception.status_code
+
+
+@dataclass
+class PaginatedResponse[T: BaseClass]:
+    page: int
+    page_size: int
+    total_items: int
+    total_pages: int
+    filters: dict[str, Any]
+    items: list[T]
+
+
+@dataclass
+class JSONResponse[T: BaseClass]:
+    status: str
+    data: T | PaginatedResponse[T]
