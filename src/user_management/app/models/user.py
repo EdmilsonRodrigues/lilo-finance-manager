@@ -1,11 +1,16 @@
 from dataclasses import dataclass, field
+from typing import Self
 
 import bcrypt
 from email_validator import validate_email
 
 from app.config import Unset, UnsetType
 from app.models.base import BaseClass, BaseModel
-from app.models.errors import UnprocessableContentException
+from app.models.errors import (
+    UnauthorizedException,
+    UnprocessableContentException,
+)
+from app.services.auth_service import AuthService
 from app.sessions import db
 
 
@@ -46,6 +51,52 @@ class User(BaseModel):
             password.encode('utf-8'), self.password.encode('utf-8')
         )
 
+    @classmethod
+    def login(cls, email: str, password: str) -> tuple[str, str]:
+        """
+        Logs in a user.
+
+        :param email: The email of the user.
+        :type email: str
+        :param password: The password of the user.
+        :type password: str
+        :return: A tuple containing the JWT token and the expiration time.
+        :rtype: tuple[str, str]
+        """
+        try:
+            # breakpoint()
+            user = cls.query.filter_by(email=email).first()
+            if user is None:
+                raise UnauthorizedException('User not found')
+            if user.check_password(password):
+                return AuthService.generate_token(user.id)
+            raise UnauthorizedException('Password is incorrect')
+        except Exception as exc:
+            raise UnauthorizedException('Invalid credentials') from exc
+
+    @classmethod
+    def authenticate(cls, token: str) -> Self:
+        """
+        Authenticates a user.
+
+        :param token: The JWT token.
+        :type token: str
+        :return: The user if the authentication is successful,
+        raises an exception otherwise.
+        :rtype: User
+        """
+        try:
+            match token.split(' '):
+                case ['Bearer', token]:
+                    user_id = AuthService.verify_token(token)
+                    return cls.get_one(id=user_id)
+                case _:
+                    raise UnauthorizedException('Invalid token')
+        except Exception as exc:
+            raise UnauthorizedException(
+                'Invalid Token', headers={'WWW-Authenticate': 'bearer'}
+            ) from exc
+
 
 @dataclass
 class UserResponse(BaseClass):
@@ -72,9 +123,10 @@ class CreateUser:
     role: str = field(init=False, default='user')
 
     def __post_init__(self):
+        self.__dict__['role'] = self.role
         try:
             self.email = validate_email(self.email).normalized
-            self.password = User.hash_password(self.password)
+            self.password = User.hash_password(self.password).decode('utf-8')
         except Exception as exc:
             raise UnprocessableContentException(exc) from exc
 
@@ -99,7 +151,9 @@ class PatchUserPassword:
                 'New password must be different from the old password'
             )
         try:
-            self.new_password = User.hash_password(self.new_password)
+            self.new_password = User.hash_password(self.new_password).decode(
+                'utf-8'
+            )
         except Exception as exc:
             raise UnprocessableContentException(
                 'Passwords are invalid'

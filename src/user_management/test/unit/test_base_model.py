@@ -187,6 +187,26 @@ class TestErrorResponse(unittest.TestCase):
                 ),
             )
 
+    def test_from_known_exception_with_headers(self):
+        exceptions = [ApplicationError, *ApplicationError.__subclasses__()]
+        for exception in exceptions:
+            error_response = ErrorResponse.from_exception(
+                exception('Test message', headers={'X-Test': 'Test'})
+            )
+            self.assertEqual(
+                error_response,
+                (
+                    {
+                        'details': {
+                            'status': exception.status_code,
+                            'message': 'Test message',
+                        },
+                    },
+                    exception.status_code,
+                    {'X-Test': 'Test'},
+                ),
+            )
+
     def test_unexpeted_exception(self):
         error_response = ErrorResponse.from_exception(
             Exception('Test message')

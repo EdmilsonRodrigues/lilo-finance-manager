@@ -1,10 +1,14 @@
+import inspect
 import unittest
+from contextlib import contextmanager
+from unittest.mock import patch
 
 from app.models.user import (
     CreateUser,
     PatchUser,
     PatchUserEmail,
     PatchUserPassword,
+    UnauthorizedException,
     UnprocessableContentException,
     User,
     UserResponse,
@@ -45,6 +49,89 @@ class TestUserModel(unittest.TestCase):
         user.password = user.hash_password('password').decode('utf-8')
         self.assertTrue(user.check_password('password'))
         self.assertFalse(user.check_password('wrong_password'))
+
+    @contextmanager
+    def mock_query(self):
+        self.mock_query_instance = unittest.mock.MagicMock()
+        original = inspect.getattr_static(User, 'query')
+        User.query = self.mock_query_instance
+        yield
+        User.query = original
+
+    def test_login(self):
+        with self.mock_query():
+            filter_by = self.mock_query_instance.filter_by
+            mock_get_one = filter_by.return_value.first
+            mock_user = User(
+                email='test@gmail.com',
+                password='password',
+                full_name='Test User',
+                role='user',
+            )
+            mock_user.password = mock_user.hash_password('password').decode(
+                'utf-8'
+            )
+            mock_get_one.return_value = mock_user
+            token, expiration_time = User.login('test@gmail.com', 'password')
+            self.assertIsNotNone(token)
+            self.assertIsNotNone(expiration_time)
+            self.assertIsInstance(token, str)
+            self.assertIsInstance(expiration_time, str)
+
+    def test_login_with_wrong_password(self):
+        with self.mock_query():
+            filter_by = self.mock_query_instance.filter_by
+            mock_get_one = filter_by.return_value.first
+            mock_user = User(
+                email='test@gmail.com',
+                password='password',
+                full_name='Test User',
+                role='user',
+            )
+            mock_user.password = mock_user.hash_password('password').decode(
+                'utf-8'
+            )
+            mock_get_one.return_value = mock_user
+            with self.assertRaises(UnauthorizedException):
+                User.login('test@gmail.com', 'wrong_password')
+
+    def test_login_with_wrong_email(self):
+        with self.mock_query():
+            filter_by = self.mock_query_instance.filter_by
+            mock_get_one = filter_by.return_value.first
+            mock_get_one.return_value = None
+            with self.assertRaises(UnauthorizedException):
+                User.login('wrong@gmail.com', 'password')
+
+    @patch('app.models.user.User.get_one')
+    @patch('app.models.user.AuthService.verify_token')
+    def test_authenticate(self, mock_verify_token, mock_get_one):
+        mock_user = User(
+            email='test@gmail.com',
+            password='password',
+            full_name='Test User',
+            role='user',
+        )
+        mock_user.password = mock_user.hash_password('password').decode(
+            'utf-8'
+        )
+        mock_get_one.return_value = mock_user
+        mock_verify_token.return_value = 1
+        user = User.authenticate('Bearer token')
+        self.assertIsNotNone(user)
+        self.assertEqual(user.email, 'test@gmail.com')
+        self.assertEqual(user.full_name, 'Test User')
+        self.assertEqual(user.role, 'user')
+
+    @patch('app.models.user.AuthService.verify_token')
+    def test_authenticate_with_invalid_token(self, mock_verify_token):
+        mock_verify_token.side_effect = UnauthorizedException('Invalid token')
+        with self.assertRaises(UnauthorizedException):
+            User.authenticate('Bearer invalid_token')
+
+    def test_authenticate_with_no_bearer_token(self):
+        with self.assertRaises(UnauthorizedException):
+            User.authenticate('Invalid token')
 
 
 class TestUserResponse(unittest.TestCase):

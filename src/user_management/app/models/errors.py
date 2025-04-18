@@ -6,6 +6,10 @@ class ApplicationError(Exception):
 
     status_code = HTTPStatus.BAD_REQUEST
 
+    def __init__(self, *args: object, headers: dict | None = None) -> None:
+        super().__init__(*args)
+        self.headers = headers
+
 
 class UnprocessableContentException(ApplicationError):
     """Exception raised for unprocessable content."""

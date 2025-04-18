@@ -144,16 +144,22 @@ class ErrorResponse:
     @from_exception.register
     @classmethod
     def _(cls, exception: ApplicationError):
-        return vars(
-            cls(
-                details=vars(
-                    cls.ErrorDetail(
-                        status=exception.status_code,
-                        message=exception.args[0],
+        exc = (
+            vars(
+                cls(
+                    details=vars(
+                        cls.ErrorDetail(
+                            status=exception.status_code,
+                            message=str(exception.args[0]),
+                        )
                     )
                 )
-            )
-        ), exception.status_code
+            ),
+            exception.status_code,
+        )
+        if exception.headers is not None:
+            exc += (exception.headers,)
+        return exc
 
 
 @dataclass

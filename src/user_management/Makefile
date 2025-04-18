@@ -10,16 +10,15 @@ mypy:
 
 .PHONY: e2e-test
 e2e-test:
-	python -m unittest discover -p 'test_*.py' -s test/e2e
+	python -m unittest discover -p 'test_*.py' -s test/e2e -v
 
 .PHONY: integration-test
 integration-test:
-	echo "Running integration tests"
-	# python -m unittest discover -p 'test_*.py' -s test/integration
+	python -m unittest discover -p 'test_*.py' -s test/integration -v
 
 .PHONY: unit-test
 unit-test:
-	python -m unittest discover -p 'test_*.py' -s test/unit
+	python -m unittest discover -p 'test_*.py' -s test/unit -v
 
 .PHONY: test
 test: unit-test integration-test e2e-test
