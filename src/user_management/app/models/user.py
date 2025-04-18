@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Self
 
-import bcrypt
 from email_validator import validate_email
+from flask_bcrypt import check_password_hash, generate_password_hash
 
 from app.config import Unset, UnsetType
 from app.models.base import BaseClass, BaseModel
@@ -34,9 +34,7 @@ class User(BaseModel):
         :return: The hashed password.
         :rtype: bytes
         """
-        salt = bcrypt.gensalt()
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
-        return hashed_password
+        return generate_password_hash(password)
 
     def check_password(self, password: str) -> bool:
         """
@@ -47,9 +45,7 @@ class User(BaseModel):
         :return: True if the password matches, False otherwise.
         :rtype: bool
         """
-        return bcrypt.checkpw(
-            password.encode('utf-8'), self.password.encode('utf-8')
-        )
+        return check_password_hash(self.password, password)
 
     @classmethod
     def login(cls, email: str, password: str) -> tuple[str, str]:

@@ -108,7 +108,15 @@ class BaseClass:
     updated_at: str
 
     @classmethod
-    def from_model(cls, model: BaseModel):
+    def from_model(cls, model: BaseModel) -> Self:
+        """
+        Converts a SQLAlchemy model to a dataclass.
+
+        :param model: The SQLAlchemy model to convert.
+        :type model: BaseModel
+        :return: The dataclass representation of the model.
+        :rtype: Self
+        """
         return cls(**{
             field: value
             for field, value in vars(model).items()
@@ -126,8 +134,12 @@ type ErrorResponseFormat = (
 
 @dataclass
 class ErrorResponse:
+    """Dataclass for the error response serialization."""
+
     @dataclass
     class ErrorDetail:
+        """Dataclass for the error detail serialization."""
+
         status: int
         message: str
 
@@ -184,6 +196,8 @@ class ErrorResponse:
 
 @dataclass
 class PaginatedResponse[T: BaseClass]:
+    """Paginated response class"""
+
     page: int
     page_size: int
     total_items: int
@@ -194,5 +208,7 @@ class PaginatedResponse[T: BaseClass]:
 
 @dataclass
 class JSONResponse[T: BaseClass]:
+    """JSON response class"""
+
     status: str
     data: T | PaginatedResponse[T]
