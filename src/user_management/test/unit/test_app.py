@@ -11,11 +11,15 @@ class TestBasicAppFunctions(unittest.TestCase):
 
     def tearDown(self):
         with self.app.app_context():
-            db.session.remove()
             db.drop_all()
+            db.session.remove()
+            db.engine.dispose()
 
     def test_check_if_tables_are_created(self):
         with self.app.app_context():
             self.assertTrue(
-                db.engine.dialect.has_table(db.engine.connect(), 'user')
+                db.engine.dialect.has_table(db.engine.connect(), 'users')
+            )
+            self.assertFalse(
+                db.engine.dialect.has_table(db.engine.connect(), 'base_model')
             )

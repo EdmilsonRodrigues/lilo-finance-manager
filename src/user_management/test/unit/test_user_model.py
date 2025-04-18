@@ -112,6 +112,15 @@ class TestUserCreateModel(unittest.TestCase):
         self.assertEqual(user_create.full_name, 'Test User')
         self.assertEqual(user_create.role, 'user')
 
+    def test_user_create_model_try_to_pass_role(self):
+        with self.assertRaises(TypeError):
+            CreateUser(
+                email='test@gmail.com',
+                password='password',
+                full_name='Test User',
+                role='admin',
+            )
+
     def test_user_create_model_bad_email(self):
         with self.assertRaises(UnprocessableContentException):
             CreateUser(

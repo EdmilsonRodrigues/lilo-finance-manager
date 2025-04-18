@@ -27,13 +27,17 @@ class BaseModel(db.Model):  # type: ignore
 
     @classmethod
     def update(cls, id: int, fields: dict[str, Any]) -> Self:
-        cls.query.filter_by(id=id).update(fields)
+        updated = cls.query.filter_by(id=id).update(fields)
+        if not updated:
+            raise NotFoundException(f'{cls.__name__} not found')
         db.session.commit()
         return cls.get_one(id)
 
     @classmethod
     def delete(cls, id: int) -> None:
-        cls.query.filter_by(id=id).delete()
+        deleted = cls.query.filter_by(id=id).delete()
+        if not deleted:
+            raise NotFoundException(f'{cls.__name__} not found')
         db.session.commit()
 
     @classmethod
@@ -46,6 +50,17 @@ class BaseModel(db.Model):  # type: ignore
     @classmethod
     def get_many(cls, filters: dict[str, Any] = {}) -> list[Self]:
         return cls.query.filter_by(**filters).all()
+
+    def __repr__(self) -> str:
+        fields = {
+            field: value
+            for field, value in vars(self).items()
+            if (not field.startswith('_')) and not callable(value)
+        }
+        fields_str = ', '.join(
+            f'{field}={value!r}' for field, value in fields.items()
+        )
+        return f'<{self.__class__.__name__} {fields_str}>'
 
 
 @dataclass
@@ -79,9 +94,11 @@ class ErrorResponse:
     def from_exception(cls, exception: Exception):
         return vars(
             cls(
-                details=cls.ErrorDetail(
-                    status=500,
-                    message=str(exception),
+                details=vars(
+                    cls.ErrorDetail(
+                        status=500,
+                        message=str(exception),
+                    )
                 )
             )
         ), 500
@@ -91,9 +108,11 @@ class ErrorResponse:
     def _(cls, exception: ApplicationError):
         return vars(
             cls(
-                details=cls.ErrorDetail(
-                    status=exception.status_code,
-                    message=exception.args[0],
+                details=vars(
+                    cls.ErrorDetail(
+                        status=exception.status_code,
+                        message=exception.args[0],
+                    )
                 )
             )
         ), exception.status_code
