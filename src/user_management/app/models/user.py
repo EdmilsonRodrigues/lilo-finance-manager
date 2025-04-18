@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import bcrypt
 from email_validator import validate_email
@@ -25,6 +25,7 @@ class User(BaseModel):
         Hashes the password using bcrypt.
 
         :param password: The password to hash.
+        :type password: str
         :return: The hashed password.
         :rtype: bytes
         """
@@ -37,6 +38,7 @@ class User(BaseModel):
         Checks if the provided password matches the stored hash.
 
         :param password: The password to check.
+        :type password: str
         :return: True if the password matches, False otherwise.
         :rtype: bool
         """
@@ -47,6 +49,8 @@ class User(BaseModel):
 
 @dataclass
 class UserResponse(BaseClass):
+    """Dataclass for the user response serialization."""
+
     email: str
     full_name: str
     role: str
@@ -60,10 +64,12 @@ class UserResponse(BaseClass):
 
 @dataclass
 class CreateUser:
+    """Dataclass for the user creation request serialization."""
+
     email: str
     password: str
     full_name: str
-    role: str = 'user'
+    role: str = field(init=False, default='user')
 
     def __post_init__(self):
         try:
@@ -75,11 +81,15 @@ class CreateUser:
 
 @dataclass
 class PatchUser:
+    """Dataclass for the user update request serialization."""
+
     full_name: str | UnsetType = Unset
 
 
 @dataclass
 class PatchUserPassword:
+    """Dataclass for the user password update request serialization."""
+
     old_password: str
     new_password: str
 
@@ -98,6 +108,8 @@ class PatchUserPassword:
 
 @dataclass
 class PatchUserEmail:
+    """Dataclass for the user email update request serialization."""
+
     email: str
 
     def __post_init__(self):
@@ -110,15 +122,26 @@ class PatchUserEmail:
 def get_patch_fields(
     data: dict,
 ) -> dict[str, str]:
+    """
+    Get the fields to patch from the request data.
+
+    :param data: The request data.
+    :type data: dict
+    :return: The fields to patch.
+    :rtype: dict[str, str]
+    """
+
     match data:
         case {'email': email}:
             return vars(PatchUserEmail(email=email))
+
         case {'old_password': old_password, 'new_password': new_password}:
             return vars(
                 PatchUserPassword(
                     old_password=old_password, new_password=new_password
                 )
             )
+
         case {}:
             try:
                 return {
@@ -128,4 +151,5 @@ def get_patch_fields(
                 }
             except TypeError as exc:
                 raise UnprocessableContentException('Invalid data') from exc
+
     raise UnprocessableContentException('Invalid data')

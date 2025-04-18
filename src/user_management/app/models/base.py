@@ -7,6 +7,8 @@ from app.sessions import db
 
 
 class BaseModel(db.Model):  # type: ignore
+    """Base class for all SQLAlchemy models."""
+
     __abstract__ = True
 
     id = db.Column(db.Integer, primary_key=True)
@@ -27,6 +29,15 @@ class BaseModel(db.Model):  # type: ignore
 
     @classmethod
     def update(cls, id: int, fields: dict[str, Any]) -> Self:
+        """
+        Updates the model instance in the database.
+
+        :param id: The id of the model instance to update.
+        :type id: int
+        :param fields: The fields to update.
+        :type fields: dict[str, Any]
+        :return: The updated model instance.
+        """
         updated = cls.query.filter_by(id=id).update(fields)
         if not updated:
             raise NotFoundException(f'{cls.__name__} not found')
@@ -35,6 +46,12 @@ class BaseModel(db.Model):  # type: ignore
 
     @classmethod
     def delete(cls, id: int) -> None:
+        """
+        Deletes the model instance from the database.
+
+        :param id: The id of the model instance to delete.
+        :type id: int
+        """
         deleted = cls.query.filter_by(id=id).delete()
         if not deleted:
             raise NotFoundException(f'{cls.__name__} not found')
@@ -42,6 +59,13 @@ class BaseModel(db.Model):  # type: ignore
 
     @classmethod
     def get_one(cls, id: int) -> Self:
+        """
+        Gets the model instance from the database.
+
+        :param id: The id of the model instance to get.
+        :type id: int
+        :return: The model instance.
+        """
         obj = cls.query.get(id)
         if obj is None:
             raise NotFoundException(f'{cls.__name__} not found')
@@ -49,9 +73,23 @@ class BaseModel(db.Model):  # type: ignore
 
     @classmethod
     def get_many(cls, filters: dict[str, Any] = {}) -> list[Self]:
+        """
+        Gets a list of model instances from the database.
+
+        :param filters: The filters to apply.
+        :type filters: dict[str, Any]
+        :return: The list of model instances.
+        :rtype: list[Self]
+        """
         return cls.query.filter_by(**filters).all()
 
     def __repr__(self) -> str:
+        """
+        Returns a string representation of the model instance.
+
+        :return: The string representation of the model instance.
+        :rtype: str
+        """
         fields = {
             field: value
             for field, value in vars(self).items()
