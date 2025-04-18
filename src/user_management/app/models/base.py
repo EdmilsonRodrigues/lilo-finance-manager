@@ -118,6 +118,12 @@ class BaseClass:
         })
 
 
+type ErrorFormat = dict[str, dict[str, str]]
+type ErrorResponseFormat = (
+    tuple[ErrorFormat, int] | tuple[ErrorFormat, int, dict[str, str]]
+)
+
+
 @dataclass
 class ErrorResponse:
     @dataclass
@@ -127,34 +133,48 @@ class ErrorResponse:
 
     details: ErrorDetail
 
+    def jsonify(self) -> ErrorFormat:
+        """
+        Returns a JSON representation of the error response.
+
+        :return: The JSON representation of the error response.
+        :rtype: ErrorFormat
+        """
+        return {'details': vars(self.details)}
+
     @singledispatchmethod
     @classmethod
-    def from_exception(cls, exception: Exception):
-        return vars(
+    def from_exception(cls, exception: Exception) -> ErrorResponseFormat:
+        """
+        Returns a tuple containing the JSON representation of the error
+         and the status code.
+
+        :param exception: The exception to convert to a JSON representation.
+        :type exception: Exception
+        :return: A tuple containing the JSON representation of the error
+        and the status code. Can contain a third element if the exception
+        has a headers attribute.
+        :rtype: ErrorResponseFormat
+        """
+        return (
             cls(
-                details=vars(
-                    cls.ErrorDetail(
-                        status=500,
-                        message=str(exception),
-                    )
+                details=cls.ErrorDetail(
+                    status=500,
+                    message=str(exception),
                 )
-            )
+            ).jsonify()
         ), 500
 
     @from_exception.register
     @classmethod
-    def _(cls, exception: ApplicationError):
-        exc = (
-            vars(
-                cls(
-                    details=vars(
-                        cls.ErrorDetail(
-                            status=exception.status_code,
-                            message=str(exception.args[0]),
-                        )
-                    )
+    def _(cls, exception: ApplicationError) -> ErrorResponseFormat:
+        exc: ErrorResponseFormat = (
+            cls(
+                details=cls.ErrorDetail(
+                    status=exception.status_code,
+                    message=str(exception.args[0]),
                 )
-            ),
+            ).jsonify(),
             exception.status_code,
         )
         if exception.headers is not None:
