@@ -10,7 +10,8 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock .
 
-RUN uv sync --group telemetry --no-cache && uv run openetelemetry-bootstrap -a install
+RUN uv sync --group telemetry --no-cache
+RUN uv run opentelemetry-bootstrap -a install
 
 ENV OTEL_SERVICE_NAME=lfm-user-management-service
 ENV OTEL_EXPORTER_OTLP_INSECURE=true
@@ -23,5 +24,5 @@ COPY app/ ./app
 
 EXPOSE 5000
 
-ENTRYPOINT ["uv",  "run", "openetelemetry-instrument"]
-CMD ["gunicorn", "--worker-class", "gevent", "-b", "0.0.0.0:5000", "app.app:get_app"]
+ENTRYPOINT ["uv",  "run", "opentelemetry-instrument"]
+CMD ["gunicorn", "--worker-class", "gevent", "-b", "0.0.0.0:5000", "app.app:create_app()"]
