@@ -1,9 +1,12 @@
+import logging
 from datetime import UTC, datetime, timedelta
 
 import jwt
 
 from app.config import JWT_EXPIRATION_TIME, SECRET_KEY
 from app.models.errors import UnauthorizedException
+
+logger = logging.getLogger()
 
 
 class AuthService:
@@ -41,4 +44,5 @@ class AuthService:
             payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
             return int(payload['sub'])
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError) as exc:
+            logger.exception(exc)
             raise UnauthorizedException('Invalid token') from exc

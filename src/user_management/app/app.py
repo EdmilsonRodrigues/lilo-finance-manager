@@ -1,11 +1,35 @@
+import atexit
+import logging
+
 from flask import Blueprint, Flask, jsonify
 
 from app.config import SECRET_KEY, VERSION
 from app.routes.auth import auth_bp
+from app.routes.users import users_bp
 from app.sessions import db
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
-def get_app(db_uri: str, test: bool = False):
+
+def on_exit():
+    logger.info('User management service going down')
+
+
+atexit.register(on_exit)
+
+
+def get_app(db_uri: str, test: bool = False) -> Flask:
+    """
+    Function to create and configure the Flask application.
+
+    :param db_uri: The URI of the database to connect to.
+    :type db_uri: str
+    :param test: Whether the application is running in test mode.
+    :type test: bool
+    :return: The configured Flask application.
+    """
+    logger.info('User management service going up')
     app = Flask(__name__)
     app.secret_key = SECRET_KEY
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
@@ -26,14 +50,16 @@ def get_app(db_uri: str, test: bool = False):
 
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')
 api_bp.register_blueprint(auth_bp)
+api_bp.register_blueprint(users_bp)
 
 
 @api_bp.route('/', methods=['GET'])
 def health_check():
+    """Health check endpoint."""
     return jsonify({'message': VERSION}), 200
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     from app.config import DATABASE_URI
 
     if DATABASE_URI is None:

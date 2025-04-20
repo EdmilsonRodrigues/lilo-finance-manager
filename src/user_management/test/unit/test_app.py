@@ -1,7 +1,6 @@
 import unittest
 
-from app.app import get_app
-from app.sessions import db
+from app.app import VERSION, db, get_app
 
 
 class TestBasicAppFunctions(unittest.TestCase):
@@ -23,3 +22,8 @@ class TestBasicAppFunctions(unittest.TestCase):
             self.assertFalse(
                 db.engine.dialect.has_table(db.engine.connect(), 'base_model')
             )
+
+    def test_health_check(self):
+        response = self.client.get('/api/v1/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {'message': VERSION})
