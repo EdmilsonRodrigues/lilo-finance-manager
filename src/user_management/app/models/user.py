@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Self
 
@@ -12,6 +13,8 @@ from app.models.errors import (
 )
 from app.services.auth_service import AuthService
 from app.sessions import db
+
+logger = logging.getLogger()
 
 
 class User(BaseModel):
@@ -48,6 +51,18 @@ class User(BaseModel):
         return check_password_hash(self.password, password)
 
     @classmethod
+    def update(cls, id: int, fields: dict) -> Self:
+        if 'old_password' in fields:
+            logger.info(f'Updating password of user with id: {id}')
+            old_password = fields.pop('old_password')
+            user = cls.get_one(id)
+            if not user.check_password(old_password):
+                logger.warning('Invalid password')
+                raise UnauthorizedException('Invalid password')
+            return cls.update(id, {'password': fields['new_password']})
+        return super().update(id, fields)
+
+    @classmethod
     def login(cls, email: str, password: str) -> tuple[str, str]:
         """
         Logs in a user.
@@ -60,7 +75,6 @@ class User(BaseModel):
         :rtype: tuple[str, str]
         """
         try:
-            # breakpoint()
             user = cls.query.filter_by(email=email).first()
             if user is None:
                 raise UnauthorizedException('User not found')
@@ -68,27 +82,28 @@ class User(BaseModel):
                 return AuthService.generate_token(user.id)
             raise UnauthorizedException('Password is incorrect')
         except Exception as exc:
+            logger.exception(exc)
             raise UnauthorizedException('Invalid credentials') from exc
 
     @classmethod
-    def authenticate(cls, token: str) -> Self:
+    def authenticate(cls, token: str) -> int:
         """
         Authenticates a user.
 
         :param token: The JWT token.
         :type token: str
-        :return: The user if the authentication is successful,
+        :return: The user id if the authentication is successful,
         raises an exception otherwise.
-        :rtype: User
+        :rtype: int
         """
         try:
             match token.split(' '):
                 case ['Bearer', token]:
-                    user_id = AuthService.verify_token(token)
-                    return cls.get_one(id=user_id)
+                    return AuthService.verify_token(token)
                 case _:
                     raise UnauthorizedException('Invalid token')
         except Exception as exc:
+            logger.exception(exc)
             raise UnauthorizedException(
                 'Invalid Token', headers={'WWW-Authenticate': 'bearer'}
             ) from exc
@@ -106,6 +121,7 @@ class UserResponse(BaseClass):
         try:
             self.email = validate_email(self.email).normalized
         except Exception as exc:
+            logger.exception(exc)
             raise UnprocessableContentException(exc) from exc
 
 
@@ -124,6 +140,7 @@ class CreateUser:
             self.email = validate_email(self.email).normalized
             self.password = User.hash_password(self.password).decode('utf-8')
         except Exception as exc:
+            logger.exception(exc)
             raise UnprocessableContentException(exc) from exc
 
 
@@ -143,6 +160,7 @@ class PatchUserPassword:
 
     def __post_init__(self):
         if self.new_password == self.old_password:
+            logger.warning('New password is the same as the old password')
             raise UnprocessableContentException(
                 'New password must be different from the old password'
             )
@@ -151,6 +169,7 @@ class PatchUserPassword:
                 'utf-8'
             )
         except Exception as exc:
+            logger.exception(exc)
             raise UnprocessableContentException(
                 'Passwords are invalid'
             ) from exc
@@ -166,11 +185,12 @@ class PatchUserEmail:
         try:
             self.email = validate_email(self.email).normalized
         except Exception as exc:
+            logger.exception(exc)
             raise UnprocessableContentException(exc) from exc
 
 
 def get_patch_fields(
-    data: dict,
+    **data,
 ) -> dict[str, str]:
     """
     Get the fields to patch from the request data.
@@ -180,7 +200,6 @@ def get_patch_fields(
     :return: The fields to patch.
     :rtype: dict[str, str]
     """
-
     match data:
         case {'email': email}:
             return vars(PatchUserEmail(email=email))
@@ -192,7 +211,7 @@ def get_patch_fields(
                 )
             )
 
-        case {}:
+        case _:
             try:
                 return {
                     key: value
@@ -200,6 +219,6 @@ def get_patch_fields(
                     if value is not Unset
                 }
             except TypeError as exc:
-                raise UnprocessableContentException('Invalid data') from exc
-
-    raise UnprocessableContentException('Invalid data')
+                raise UnprocessableContentException(
+                    'Unprocessable Content'
+                ) from exc
