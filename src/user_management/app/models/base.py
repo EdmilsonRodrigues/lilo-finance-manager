@@ -1,9 +1,13 @@
+import logging
 from dataclasses import dataclass
+from datetime import datetime
 from functools import singledispatchmethod
 from typing import Any, Self
 
 from app.models.errors import ApplicationError, NotFoundException
 from app.sessions import db
+
+logger = logging.getLogger()
 
 
 class BaseModel(db.Model):  # type: ignore
@@ -23,6 +27,7 @@ class BaseModel(db.Model):  # type: ignore
 
         :return: The newly created model instance with an id.
         """
+        logger.info(f'Creating {self.__class__.__name__}: {self}')
         db.session.add(self)
         db.session.commit()
         return self
@@ -38,8 +43,12 @@ class BaseModel(db.Model):  # type: ignore
         :type fields: dict[str, Any]
         :return: The updated model instance.
         """
+        logger.info(
+            f'Updating {cls.__name__} with id: {id} and fields: {fields}'
+        )
         updated = cls.query.filter_by(id=id).update(fields)
         if not updated:
+            logger.exception(f'{cls.__name__} with id: {id} not found')
             raise NotFoundException(f'{cls.__name__} not found')
         db.session.commit()
         return cls.get_one(id)
@@ -52,8 +61,10 @@ class BaseModel(db.Model):  # type: ignore
         :param id: The id of the model instance to delete.
         :type id: int
         """
+        logger.info(f'Deleting {cls.__name__} with id: {id}')
         deleted = cls.query.filter_by(id=id).delete()
         if not deleted:
+            logger.exception(f'{cls.__name__} with id: {id} not found')
             raise NotFoundException(f'{cls.__name__} not found')
         db.session.commit()
 
@@ -66,8 +77,10 @@ class BaseModel(db.Model):  # type: ignore
         :type id: int
         :return: The model instance.
         """
+        logger.info(f'Getting {cls.__name__} with id: {id}')
         obj = cls.query.get(id)
         if obj is None:
+            logger.exception(f'{cls.__name__} with id: {id} not found')
             raise NotFoundException(f'{cls.__name__} not found')
         return obj
 
@@ -81,6 +94,7 @@ class BaseModel(db.Model):  # type: ignore
         :return: The list of model instances.
         :rtype: list[Self]
         """
+        logger.info(f'Getting {cls.__name__} with filters: {filters}')
         return cls.query.filter_by(**filters).all()
 
     def __repr__(self) -> str:
@@ -117,8 +131,10 @@ class BaseClass:
         :return: The dataclass representation of the model.
         :rtype: Self
         """
-        return cls(**{
+        return cls(**{  # type: ignore
             field: value
+            if not isinstance(value, datetime)
+            else value.isoformat()
             for field, value in vars(model).items()
             if (not field.startswith('_'))
             and not callable(value)
@@ -212,3 +228,12 @@ class JSONResponse[T: BaseClass]:
 
     status: str
     data: T | PaginatedResponse[T]
+
+    def jsonify(self) -> dict[str, str | dict[str, Any]]:
+        """
+        Returns a JSON representation of the JSON response.
+
+        :return: The JSON representation of the JSON response.
+        :rtype: dict[str, dict[str, Any]]
+        """
+        return {'status': self.status, 'data': vars(self.data)}

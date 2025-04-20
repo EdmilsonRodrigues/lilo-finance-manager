@@ -103,9 +103,8 @@ class TestUserModel(unittest.TestCase):
             with self.assertRaises(UnauthorizedException):
                 User.login('wrong@gmail.com', 'password')
 
-    @patch('app.models.user.User.get_one')
     @patch('app.models.user.AuthService.verify_token')
-    def test_authenticate(self, mock_verify_token, mock_get_one):
+    def test_authenticate(self, mock_verify_token):
         mock_user = User(
             email='test@gmail.com',
             password='password',
@@ -115,13 +114,9 @@ class TestUserModel(unittest.TestCase):
         mock_user.password = mock_user.hash_password('password').decode(
             'utf-8'
         )
-        mock_get_one.return_value = mock_user
         mock_verify_token.return_value = 1
-        user = User.authenticate('Bearer token')
-        self.assertIsNotNone(user)
-        self.assertEqual(user.email, 'test@gmail.com')
-        self.assertEqual(user.full_name, 'Test User')
-        self.assertEqual(user.role, 'user')
+        user_id = User.authenticate('Bearer token')
+        self.assertEqual(user_id, 1)
 
     @patch('app.models.user.AuthService.verify_token')
     def test_authenticate_with_invalid_token(self, mock_verify_token):
@@ -271,14 +266,14 @@ class TestUserPatchModels(unittest.TestCase):
             'full_name': 'Test User',
         }
         self.assertEqual(
-            get_patch_fields(user_patch),
+            get_patch_fields(**user_patch),
             {'full_name': 'Test User'},
         )
         user_patch = {
             'email': 'test@gmail.com',
         }
         self.assertEqual(
-            get_patch_fields(user_patch),
+            get_patch_fields(**user_patch),
             {'email': 'test@gmail.com'},
         )
         user_patch = {
@@ -286,14 +281,14 @@ class TestUserPatchModels(unittest.TestCase):
             'new_password': 'newpassword',
         }
         self.assertEqual(
-            get_patch_fields(user_patch)['old_password'], 'password'
+            get_patch_fields(**user_patch)['old_password'], 'password'
         )
         self.assertNotEqual(
-            get_patch_fields(user_patch)['new_password'],
+            get_patch_fields(**user_patch)['new_password'],
             'newpassword',
         )
         self.assertEqual(
-            get_patch_fields(user_patch).keys(),
+            get_patch_fields(**user_patch).keys(),
             {'old_password', 'new_password'},
         )
         user_patch = {
@@ -301,11 +296,7 @@ class TestUserPatchModels(unittest.TestCase):
             'role': 'admin',
         }
         self.assertRaises(
-            UnprocessableContentException, get_patch_fields, user_patch
+            UnprocessableContentException, get_patch_fields, **user_patch
         )
         user_patch = {}
-        self.assertEqual(get_patch_fields(user_patch), {})
-        user_patch = 'not a dict'
-        self.assertRaises(
-            UnprocessableContentException, get_patch_fields, user_patch
-        )
+        self.assertEqual(get_patch_fields(**user_patch), {})
