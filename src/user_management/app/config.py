@@ -13,7 +13,7 @@ JWT_EXPIRATION_TIME = 3600
 SECRET_KEY = os.getenv('LFM_SECRET_KEY', os.urandom(32))
 
 DATABASE_URI = os.getenv(
-    'LFM_USER_MANAGEMENT_SQLALCHEMY_DATABASE_URI',
+    'LFM_USER_MANAGEMENT_SQLALCHEMY_DATABASE_URI', 'sqlite:///:memory:'
 )
 
 type UnsetType = object
