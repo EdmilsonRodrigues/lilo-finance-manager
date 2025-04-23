@@ -65,8 +65,9 @@ def authentication_required(func):
         if not token:
             logger.exception(f'Missing token on request {request.get_json()}')
             raise UnauthorizedException('Missing token')
-        logger.info(f'Authenticating user with token: {token}')
+        logger.debug(f'Authenticating user with token: {token}')
         user_id = User.authenticate(token)
+        logger.debug(f'User {user_id} authenticated')
         return func(*args, **kwargs, user_id=user_id)
 
     return wrapper

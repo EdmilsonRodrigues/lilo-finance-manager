@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Self
+from typing import Any, Self
 
 from email_validator import validate_email
 from flask_bcrypt import check_password_hash, generate_password_hash
@@ -53,7 +53,7 @@ class User(BaseModel):
     @classmethod
     def update(cls, id: int, fields: dict) -> Self:
         if 'old_password' in fields:
-            logger.info(f'Updating password of user with id: {id}')
+            logger.debug(f'Updating password of user with id: {id}')
             old_password = fields.pop('old_password')
             user = cls.get_one(id)
             if not user.check_password(old_password):
@@ -191,7 +191,7 @@ class PatchUserEmail:
 
 def get_patch_fields(
     **data,
-) -> dict[str, str]:
+) -> dict[str, Any]:
     """
     Get the fields to patch from the request data.
 

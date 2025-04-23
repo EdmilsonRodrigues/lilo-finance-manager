@@ -1,0 +1,13 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: postgres-service-entry
+spec:
+  hosts:
+    - "*"  # This will be replaced by the Beanstalk with the Postgres endpoint
+  ports:
+    - number: 5432
+      name: tcp
+      protocol: TCP
+  resolution: DNS
+  location: MESH_EXTERNAL

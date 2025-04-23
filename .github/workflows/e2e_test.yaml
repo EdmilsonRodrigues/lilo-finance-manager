@@ -3,9 +3,12 @@ name: Run End To End Tests
 on:
   push:
     branches-ignore:
-        - '*/*'
-        - '*dev'
+      - '*/*'
+      - '*dev'
   pull_request:
+    branches-ignore:
+      - '*/*'
+      - '*dev'
 
 jobs:
     test-e2e:
