@@ -49,7 +49,7 @@
         owner: "{{ ansible_user }}"
 
 
-- name: Configure Istio on MicroK8s
+- name: Configure The dev environment
   hosts: dev
   become: true
   vars_files:

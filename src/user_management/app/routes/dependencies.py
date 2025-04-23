@@ -91,7 +91,7 @@ def parse_body(name: str, schema: type | Callable):
         def wrapper(*args, request, **kwargs):
             try:
                 body = request.get_json()
-                logger.info(f'Parrsing request body: {body}')
+                logger.info(f'Parsing request body: {body}')
                 kwargs[name] = schema(**body)
             except TypeError as exc:
                 logger.exception(f'Failed to parse request body {body}: {exc}')
