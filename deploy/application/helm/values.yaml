@@ -1,0 +1,15 @@
+configMap:
+  name: config
+  data:
+    LFM_USER_MANAGEMENT_SQLALCHEMY_DATABASE_URI: "postgresql://postgres:root@lfm-user-management-db-postgresql:5432/user_management"
+    OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+
+user_management:
+  replicaCount: 2
+  image: edmilsonrodrigues/lilo-finance-manager-user-management-service:v1.0
+  containerPort: 5000
+
+services:
+  - name: user-management
+    port: 5000
+    label: user-management

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: lilo-finance-manager
+description: A helm chart to deploy the lilo-finance-manager application
+type: application
+version: 0.1.0
+appVersion: 0.1.0

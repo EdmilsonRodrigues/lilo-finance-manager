@@ -1,0 +1,57 @@
+name: Run Unit Tests
+
+on: [push, pull_request]
+
+jobs:
+    test-unit:
+        name: Run Unit Tests on ${{ matrix.service }}
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            service:
+              - common_utils/messagery
+              - user_management
+        steps:
+        - uses: actions/checkout@v4
+
+        - name: Set up Python 3.13
+          uses: actions/setup-python@v5
+          with:
+            python-version: "3.13"
+
+        - name: Get service base path
+          id: service_path
+          run: |
+            echo "base_path=src/${{ matrix.service }}" >> $GITHUB_OUTPUT
+
+        - name: Install the latest version of uv
+          uses: astral-sh/setup-uv@v5
+          with:
+            version: latest
+            enable-cache: true
+            cache-suffix: "${{ matrix.service }}"
+            cache-dependency-glob: "${{ steps.service_path.outputs.base_path }}/uv.lock"
+
+        - name: Sync dependencies
+          run: |
+            cd "${{ steps.service_path.outputs.base_path }}"
+            uv sync --all-groups
+
+        - name: Run Linting
+          run: |
+            cd "${{ steps.service_path.outputs.base_path }}"
+            source .venv/bin/activate
+            make lint
+
+        - name: Run Mypy
+          run: |
+            cd "${{ steps.service_path.outputs.base_path }}"
+            source .venv/bin/activate
+            make mypy
+
+        - name: Run Unit Tests
+          run: |
+            cd "${{ steps.service_path.outputs.base_path }}"
+            source .venv/bin/activate
+            make unit-test
+
