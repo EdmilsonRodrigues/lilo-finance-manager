@@ -1,0 +1,124 @@
+---
+- name: Install and Configure MicroK8s Cloud
+  hosts: all
+  become: true
+  vars_files:
+    - variables.yaml
+  tasks:
+    - name: Install Dependencies
+      ansible.builtin.apt:
+        pkg:
+          - make
+          - snapd
+        state: present
+        update_cache: true
+
+    - name: Install microk8s
+      community.general.snap:
+        name: microk8s
+        classic: true
+
+    - name: Add user to microk8s group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: microk8s
+        append: true
+
+    - name: Wait for microk8s to start
+      ansible.builtin.meta: reset_connection
+
+    - name: Start microk8s
+      ansible.builtin.shell:
+        cmd: |
+          microk8s.start
+          microk8s.status --wait-ready
+          touch .microk8s-started
+      register: start_microk8s
+
+    - name: Create ansible artifacts directory
+      ansible.builtin.file:
+        path: "{{ ansible_artifacts_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy application manifests
+      ansible.builtin.copy:
+        src: "../../application/"
+        dest: "deployment"
+        mode: "0644"
+        owner: "{{ ansible_user }}"
+
+
+- name: Configure Istio on MicroK8s
+  hosts: dev
+  become: true
+  vars_files:
+    - variables.yaml
+  tasks:
+    - name: Enable required microk8s addons
+      ansible.builtin.shell:
+        cmd: |
+          microk8s.enable hostpath-storage metrics-server
+
+    - name: Create namespaces
+      ansible.builtin.shell:
+        cmd: |
+          microk8s.kubectl create namespace istio-system || true # Use || to avoid failing if it exists
+          microk8s.kubectl create namespace istio-ingress || true
+
+    - name: Add istio helm repository
+      ansible.builtin.shell:
+        cmd: |
+          microk8s.helm3 repo add istio https://istio-release.storage.googleapis.com/charts
+          microk8s.helm3 repo update
+          touch "{{ ansible_artifacts_dir }}/.istio-repo-added"
+        creates: "{{ ansible_artifacts_dir }}/.istio-repo-added"
+
+    - name: Install istio
+      ansible.builtin.shell:
+        cmd: |
+          microk8s.helm3 install istio-base istio/base -n istio-system --set defaultRevision=default
+          microk8s.helm3 install istiod istio/istiod -n istio-system
+          microk8s.helm3 install istio-ingress istio/gateway -n istio-ingress
+          touch "{{ ansible_artifacts_dir }}/.istio-installed"
+        creates: "{{ ansible_artifacts_dir }}/.istio-installed"
+
+    - name: Enable Sidecars
+      ansible.builtin.shell:
+        cmd: |
+          microk8s.kubectl label namespace default istio-injection=enabled --overwrite
+
+    - name: Apply observability stach
+      ansible.builtin.shell:
+        cmd: |
+          microk8s.kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.23/samples/addons/prometheus.yaml
+          microk8s.kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.23/samples/addons/grafana.yaml
+          microk8s.kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.23/samples/addons/jaeger.yaml
+          microk8s.kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.23/samples/addons/kiali.yaml
+          microk8s.kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.23/samples/addons/loki.yaml
+          microk8s.kubectl apply -f https://raw.githubusercontent.com/open-telemetry/opentelemetry-collector/v0.124.0/examples/k8s/otel-config.yaml -n istio-system
+          touch "{{ ansible_artifacts_dir }}/.observability-stack-added"
+        creates: "{{ ansible_artifacts_dir }}/.observability-stack-added"
+
+    - name: Deploy Databases
+      ansible.builtin.shell:
+        cmd: |
+          microk8s.helm3 install lfm-user-management-db oci://registry-1.docker.io/bitnamicharts/postgresql --set auth.username=postgres --set auth.password=root --set auth.database=user_management
+          touch "{{ ansible_artifacts_dir }}/.databases-deployed"
+        creates: "{{ ansible_artifacts_dir }}/.databases-deployed"
+
+    - name: Deploy Services
+      ansible.builtin.shell:
+        cmd: |
+          microk8s.helm3 install lilo-finance-manager .
+          touch "{{ ansible_artifacts_dir }}/.services-deployed"
+        chdir: "deployment/helm"
+        creates: "{{ ansible_artifacts_dir }}/.services-deployed"
+
+    - name: Deploy Istio Files
+      ansible.builtin.shell:
+        cmd: |
+          for file in $( ls *yaml ); do microk8s.kubectl apply -f $file; done
+          touch "{{ ansible_artifacts_dir }}/.istio-files-deployed"
+        chdir: "deployment/istio"
+        creates: "{{ ansible_artifacts_dir }}/.istio-files-deployed"
