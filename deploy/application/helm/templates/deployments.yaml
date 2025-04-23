@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-management
+  labels:
+    {{- include "lilo-finance-manager.labels" . | nindent 4 }}
+    app: user-management
+spec:
+  replicas: {{ .Values.user_management.replicaCount }}
+  selector:
+    matchLabels:
+      app: user-management
+  template:
+    metadata:
+      labels:
+        app: user-management
+    spec:
+      containers:
+        - name: user-management
+          image: {{ .Values.user_management.image }}
+          ports:
+            - containerPort: {{ .Values.user_management.containerPort }}
+          env:
+            - name: LFM_USER_MANAGEMENT_SQLALCHEMY_DATABASE_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.configMap.name }}
+                  key: LFM_USER_MANAGEMENT_SQLALCHEMY_DATABASE_URI
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ .Values.configMap.name }}
+                  key: OTEL_EXPORTER_OTLP_ENDPOINT

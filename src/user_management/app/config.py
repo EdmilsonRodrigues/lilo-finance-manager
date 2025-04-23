@@ -10,9 +10,11 @@ VERSION = '0.1.0'
 JWT_EXPIRATION_TIME = 3600
 
 
-SECRET_KEY = os.getenv('MELO_SECRET_KEY', os.urandom(32))
+SECRET_KEY = os.getenv('LFM_SECRET_KEY', os.urandom(32))
 
-DATABASE_URI = os.getenv('MELO_SQLALCHEMY_DATABASE_URI')
+DATABASE_URI = os.getenv(
+    'LFM_USER_MANAGEMENT_SQLALCHEMY_DATABASE_URI', 'sqlite:///:memory:'
+)
 
 type UnsetType = object
 Unset = object()

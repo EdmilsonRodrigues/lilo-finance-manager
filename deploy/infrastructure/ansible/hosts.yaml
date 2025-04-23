@@ -1,0 +1,6 @@
+lilo_hosts:
+    hosts:
+      dev:
+        ansible_host: 10.23.172.228
+        ansible_user: ubuntu
+        ansible_ssh_private_key_file: terraform/env/Dev/.ssh/lilo_rsa

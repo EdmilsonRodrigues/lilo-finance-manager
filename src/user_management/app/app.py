@@ -3,7 +3,7 @@ import logging
 
 from flask import Blueprint, Flask, jsonify
 
-from app.config import SECRET_KEY, VERSION
+from app.config import DATABASE_URI, SECRET_KEY, VERSION
 from app.routes.auth import auth_bp
 from app.routes.users import users_bp
 from app.sessions import db
@@ -19,7 +19,7 @@ def on_exit():
 atexit.register(on_exit)
 
 
-def get_app(db_uri: str, test: bool = False) -> Flask:
+def get_app(db_uri: str = DATABASE_URI, test: bool = False) -> Flask:
     """
     Function to create and configure the Flask application.
 
@@ -46,6 +46,15 @@ def get_app(db_uri: str, test: bool = False) -> Flask:
     app.register_blueprint(api_bp)
 
     return app
+
+
+def create_app() -> Flask:
+    """
+    Function to run the Flask application in Production mode.
+
+    :return: The configured Flask application.
+    """
+    return get_app()
 
 
 api_bp = Blueprint('api', __name__, url_prefix='/api/v1')

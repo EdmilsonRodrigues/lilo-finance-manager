@@ -27,7 +27,7 @@ class BaseModel(db.Model):  # type: ignore
 
         :return: The newly created model instance with an id.
         """
-        logger.info(f'Creating {self.__class__.__name__}: {self}')
+        logger.debug(f'Creating {self.__class__.__name__}: {self}')
         db.session.add(self)
         db.session.commit()
         return self
@@ -43,7 +43,7 @@ class BaseModel(db.Model):  # type: ignore
         :type fields: dict[str, Any]
         :return: The updated model instance.
         """
-        logger.info(
+        logger.debug(
             f'Updating {cls.__name__} with id: {id} and fields: {fields}'
         )
         updated = cls.query.filter_by(id=id).update(fields)
@@ -61,7 +61,7 @@ class BaseModel(db.Model):  # type: ignore
         :param id: The id of the model instance to delete.
         :type id: int
         """
-        logger.info(f'Deleting {cls.__name__} with id: {id}')
+        logger.debug(f'Deleting {cls.__name__} with id: {id}')
         deleted = cls.query.filter_by(id=id).delete()
         if not deleted:
             logger.exception(f'{cls.__name__} with id: {id} not found')
@@ -77,7 +77,7 @@ class BaseModel(db.Model):  # type: ignore
         :type id: int
         :return: The model instance.
         """
-        logger.info(f'Getting {cls.__name__} with id: {id}')
+        logger.debug(f'Getting {cls.__name__} with id: {id}')
         obj = cls.query.get(id)
         if obj is None:
             logger.exception(f'{cls.__name__} with id: {id} not found')
@@ -94,7 +94,7 @@ class BaseModel(db.Model):  # type: ignore
         :return: The list of model instances.
         :rtype: list[Self]
         """
-        logger.info(f'Getting {cls.__name__} with filters: {filters}')
+        logger.debug(f'Getting {cls.__name__} with filters: {filters}')
         return cls.query.filter_by(**filters).all()
 
     def __repr__(self) -> str:
