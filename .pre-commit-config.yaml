@@ -14,3 +14,10 @@ repos:
   - id: ruff
     args: [--fix]
   - id: ruff-format
+
+# - repo: https://github.com/golangci/golangci-lint
+#   rev: v2.1.5
+#   hooks:
+#   - id: golangci-lint
+#   args: [--fix]
+#   files: ^src/category_management/.*\.go$

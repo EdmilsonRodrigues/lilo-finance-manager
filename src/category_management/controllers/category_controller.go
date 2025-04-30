@@ -11,10 +11,8 @@ import (
 )
 
 var CategoryNotFoundResponse = serialization.ErrorResponse{Details: serialization.ErrorDetails{Status: 404, Message: "Category not found"}}
-var UnprocessableEntityResponse = serialization.ErrorResponse{Details: serialization.ErrorDetails{Status: 422, Message: "Unprocessable Entity"}}
-var InternalServerErrorResponse = serialization.ErrorResponse{Details: serialization.ErrorDetails{Status: 500, Message: "Internal Server Error"}}
 
-func GetCategories(ctx *gin.Context, conds serialization.QueryConditions) {
+func GetCategories(ctx *gin.Context) {
 	categories := &[]models.Category{}
 
 	log.Println("Getting categories for conds: ", conds)
@@ -33,7 +31,7 @@ func GetCategories(ctx *gin.Context, conds serialization.QueryConditions) {
 	ctx.JSON(200, response)
 }
 
-func GetCategory(ctx *gin.Context, conds QueryConditions) {
+func GetCategory(ctx *gin.Context) {
 	conds["id"] = ctx.Param("id")
 	category := models.Category{}
 
@@ -57,7 +55,7 @@ func CreateCategory(ctx *gin.Context) {
 	ctx.JSON(201, category)
 }
 
-func UpdateCategory(ctx *gin.Context, conds QueryConditions) {
+func UpdateCategory(ctx *gin.Context) {
 	conds["id"] = ctx.Param("id")
 
 	log.Println("Updating category for conds: ", conds)
@@ -92,7 +90,7 @@ func UpdateCategory(ctx *gin.Context, conds QueryConditions) {
 	ctx.JSON(200, category)
 }
 
-func DeleteCategory(ctx *gin.Context, conds QueryConditions) {
+func DeleteCategory(ctx *gin.Context) {
 	conds["id"] = ctx.Param("id")
 	category := models.Category{}
 

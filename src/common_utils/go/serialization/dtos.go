@@ -1,4 +1,4 @@
-package serialization
+package main
 
 type QueryConditions map[string]interface{}
 type DataItem map[string]interface{}
