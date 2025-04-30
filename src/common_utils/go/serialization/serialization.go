@@ -1,6 +1,9 @@
 package serialization
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type Marshaler interface {
 	Marshal() JSONResponse
@@ -34,4 +37,29 @@ func CreatePaginatedResponse[ResponseArray []Marshaler](page, size, total int, f
 			Items:      items,
 		},
 	}
+}
+
+// FilterSerializerFields filters the fields of a struct according to the given list of fields.
+// It ignores any fields that are not present in the given list.
+// It returns a map of the filtered fields.
+func FilterSerializerFields(serializer Marshaler, fields []string) (map[string]any, error) {
+	marshalled, err := json.Marshal(serializer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal serializer: %v", err)
+	}
+	var unmarshalled map[string]any
+	if err := json.Unmarshal(marshalled, &unmarshalled); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal serializer: %v", err)
+	}
+
+	result := make(map[string]any)
+	for _, field := range fields {
+		value, ok := unmarshalled[field]
+		if !ok {
+			continue
+		}
+		result[field] = value
+	}
+
+	return result, nil
 }
