@@ -3,13 +3,13 @@ name: Run Unit Tests
 on: [push, pull_request]
 
 jobs:
-    test-unit:
-        name: Run Unit Tests on ${{ matrix.service }}
+    test-unit-python:
+        name: Run Unit Tests on Python Module ${{ matrix.service }}
         runs-on: ubuntu-latest
         strategy:
           matrix:
             service:
-              - common_utils/messagery
+              - common_utils/python/messagery
               - user_management
         steps:
         - uses: actions/checkout@v4
@@ -55,3 +55,31 @@ jobs:
             source .venv/bin/activate
             make unit-test
 
+    test-unit-go:
+      name: Run Unit Tests on Go Module ${{ matrix.service }}
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          service:
+            - common_utils/go/serialization
+      steps:
+      - uses: actions/checkout@v4
+
+      - name: Get service base path
+        id: service_path
+        run: |
+          echo "base_path=src/${{ matrix.service }}" >> $GITHUB_OUTPUT
+          echo "go_mod_path=${{ steps.service_path.outputs.base_path }}/go.mod" >> $GITHUB_OUTPUT
+          if [ -f "${{ steps.service_path.outputs.go_mod_path }}/go.sum" ]; then go_sum_exists=true; fi
+          echo "go_sum_exists=${go_sum_exists}" >> $GITHUB_OUTPUT
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "${{ steps.service_path.outputs.base_path }}/go.mod"
+          check-latest: true
+
+      - name: Run unit tests
+        run: |
+          cd "${{ steps.service_path.outputs.base_path }}"
+          make unit-test
