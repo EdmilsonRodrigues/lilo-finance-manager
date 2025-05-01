@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -18,11 +17,15 @@ import (
 // If the key is already present, it will be overwritten.
 // If the "conditions" key is not present in the context, it will be created.
 func AddParamToConditionsMiddleware(paramName, columnName string) gin.HandlerFunc {
+	if paramName == "" || columnName == "" {
+		log.Fatal("AddParamToConditionsMiddleware called with empty paramName or columnName")
+	}
+
 	return func(ctx *gin.Context) {
 		paramValue := ctx.Param(paramName)
 		if paramValue == "" {
 			log.Printf("AddParamToConditionsMiddleware applied to route missing %s parameter: %s", paramName, ctx.Request.URL.Path)
-			ctx.JSON(http.StatusBadRequest, customerrors.BadRequestResponse)
+			ctx.JSON(http.StatusUnprocessableEntity, customerrors.UnprocessableEntityResponse)
 			ctx.Abort()
 			return
 		}
@@ -35,7 +38,7 @@ func AddParamToConditionsMiddleware(paramName, columnName string) gin.HandlerFun
 			return
 		}
 
-		queryConds[columnName] = paramValue
+		(*queryConds)[columnName] = paramValue
 		ctx.Set("conditions", queryConds)
 		ctx.Next()
 	}
@@ -93,74 +96,44 @@ func ParseFiltersMiddleware() gin.HandlerFunc {
 		filters, err := parseQueryMap(ctx.Query("filters"))
 		if err != nil {
 			log.Printf("Error parsing filters for request %s, filters: %s", ctx.Request.URL.Path, ctx.Query("filters"))
-			ctx.JSON(http.StatusBadRequest, customerrors.BadRequestResponse)
+			ctx.JSON(http.StatusUnprocessableEntity, customerrors.UnprocessableEntityResponse)
 			ctx.Abort()
 			return
 		}
 
-		queryConds["filters"] = filters
+		(*queryConds)["filters"] = filters
 		ctx.Set("conditions", queryConds)
 		ctx.Next()
 	}
 }
 
 // ParseReturnFieldsMiddleware parses the return_fields query parameter and sets it in the gin context.
-// The return_fields parameter is a comma-separated list of fields to return.
+// The return_fields parameter is a comma-separated string of field names.
 // If the parameter is not present, it sets an empty array in the context.
-func ParseReturnFieldsMiddleware(group bool) gin.HandlerFunc {
+func ParseReturnFieldsMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		returnFields := parseQueryArray(ctx.Query("return_fields"))
+		ctx.Set("returnFields", returnFields)
 		ctx.Next()
-		responseStatus := ctx.GetInt("responseStatus")
-		if responseStatus == 0 {
-			ctx.JSON(http.StatusInternalServerError, customerrors.InternalServerError("Error parsing return fields"))
-			return
-		}
-		var returnAll bool
-		if reflect.DeepEqual(returnFields, []string{}) {
-			returnAll = true
-		}
-
-		var returnFieldsMap gin.H
-		if group {
-			responseBody := ctx.MustGet("responseBody").(serialization.PaginatedJSONResponse)
-			if returnAll {
-				ctx.JSON(responseStatus, responseBody)
-				return
-			}
-			parsedItems := make([]gin.H, len(responseBody.Data.Items))
-			for i, item := range responseBody.Data.Items {
-				parsedItem := make(gin.H)
-				for _, field := range returnFields {
-					parsedItem[field] = item[field]
-				}
-				parsedItems[i] = parsedItem
-			}
-		} else {
-			responseBody := ctx.MustGet("responseBody").(serialization.JSONResponse)
-			if returnAll {
-				ctx.JSON(responseStatus, responseBody)
-				return
-			}
-		}
 	}
 }
 
 
 // getQueryConditions gets the query conditions from the gin context or creates a new map if it does not exist.
 // It returns the query conditions and an error if the conditions could not be parsed.
-func getQueryConditions(ctx *gin.Context) (queryConditions serialization.QueryConditions, err error) {
+func getQueryConditions(ctx *gin.Context) (queryConditions *serialization.QueryConditions, err error) {
 	conds, exists := ctx.Get("conditions")
 
 	if exists {
 		var ok bool
-		queryConditions, ok = conds.(serialization.QueryConditions)
+		queryConditions, ok = conds.(*serialization.QueryConditions)
 		if !ok {
 			err = fmt.Errorf("error parsing the context conditions")
 			return
 		}
 	} else {
-		queryConditions = make(serialization.QueryConditions)
+		newConds := make(serialization.QueryConditions)
+		queryConditions = &newConds
 	}
 	return
 }
@@ -209,6 +182,9 @@ func parseQueryArray(query string) (queryConditions []string) {
 
 	items := strings.Split(query, ",")
 	for _, item := range items {
+		if item = strings.TrimSpace(item); item == "" {
+			continue
+		}
 		queryConditions = append(queryConditions, strings.TrimSpace(item))
 	}
 	return
@@ -226,6 +202,9 @@ func parsePageNumber(page string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error parsing page number for request %s", page)
 	}
+	if pageNumber <= 0 {
+		pageNumber = 1
+	}
 	return pageNumber, nil
 }
 
@@ -240,8 +219,72 @@ func parsePageSize(pageSize string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error parsing page size for request %s", pageSize)
 	}
+	if pageSizeNumber <= 0 {
+		pageSizeNumber = 10
+	}
 	if pageSizeNumber > 100 {
 		pageSizeNumber = 100
 	}
 	return pageSizeNumber, nil
 }
+
+
+// if responseStatus == 0 {
+// 	ctx.JSON(http.StatusInternalServerError, errorParsingMessage)
+// 	return
+// }
+// var returnAll bool
+// if len(returnFields) == 0 {
+// 	returnAll = true
+// }
+
+// if group {
+// 	responseBody := ctx.MustGet("responseBody").(serialization.PaginatedJSONResponse)
+// 	if returnAll {
+// 		ctx.JSON(responseStatus, responseBody)
+// 		return
+// 	}
+// 	parsedItems := make([]gin.H, len(responseBody.Data.Items))
+// 	for i, item := range responseBody.Data.Items {
+// 		filtered, err := serialization.FilterSerializerFields(item, returnFields)
+// 		if err != nil {
+// 			ctx.JSON(http.StatusInternalServerError, errorParsingMessage)
+// 			return
+// 		}
+// 		parsedItems[i] = filtered
+// 	}
+// 	marshalled, err := json.Marshal(responseBody)
+// 	if err != nil {
+// 		ctx.JSON(http.StatusInternalServerError, errorParsingMessage)
+// 	}
+// 	var unmarshalled gin.H
+// 	if err :=json.Unmarshal(marshalled, &unmarshalled); err != nil {
+// 		ctx.JSON(http.StatusInternalServerError, errorParsingMessage)
+// 		return
+// 	}
+// 	unmarshalled["data"].(gin.H)["items"] = parsedItems
+// 	ctx.JSON(responseStatus, unmarshalled)
+// } else {
+// 	responseBody := ctx.MustGet("responseBody").(serialization.JSONResponse)
+// 	if returnAll {
+// 		ctx.JSON(responseStatus, responseBody)
+// 		return
+// 	}
+// 	parsedItem, err := serialization.FilterSerializerFields(responseBody.Data, returnFields)
+// 	if err != nil {
+// 		ctx.JSON(http.StatusInternalServerError, errorParsingMessage)
+// 		return
+// 	}
+// 	marshalled, err := json.Marshal(responseBody)
+// 	if err != nil {
+// 		ctx.JSON(http.StatusInternalServerError, errorParsingMessage)
+// 	}
+// 	var unmarshalled gin.H
+// 	if err :=json.Unmarshal(marshalled, &unmarshalled); err != nil {
+// 		ctx.JSON(http.StatusInternalServerError, errorParsingMessage)
+// 		return
+// 	}
+// 	unmarshalled["data"] = parsedItem
+// 	ctx.JSON(responseStatus, unmarshalled)
+// }
+// }

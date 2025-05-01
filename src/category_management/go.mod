@@ -3,7 +3,7 @@ module github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management
 go 1.24.0
 
 require (
-	github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization v0.0.0-20250429064654-997b8f6a7223
+	github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization v0.0.0-20250430105852-f5712fa911e2
 	github.com/gin-gonic/gin v1.10.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/driver/sqlite v1.5.7

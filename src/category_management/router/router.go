@@ -16,7 +16,7 @@ func HandleRequests(engine *gin.Engine) {
 	group.GET("/",
 		middlewares.ParsePaginationParamsMiddleware(),
 		middlewares.ParseFiltersMiddleware(),
-		middlewares.ParseReturnFieldsMiddleware(true),
+		middlewares.ParseReturnFieldsMiddleware(),
 		controllers.GetCategories,
 	)
 	group.GET("/:id",

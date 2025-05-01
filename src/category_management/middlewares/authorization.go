@@ -9,6 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// AuthorizationMiddleware is a middleware that checks if the user has access to the account with the given accountId.
+// It checks the X-User-Id and X-User-Accounts headers and verifies that the user has access to the account.
+// If the user does not have access, it returns a 403 response.
+// If the headers are missing or invalid, it returns a 400 or 403 response.
+// If the accountId parameter is missing, it returns a 403 response.
+// If the user has access, it sets the role and accountId in the gin context and calls the next handler.
 func AuthorizationMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		userId, userAccounts := ctx.GetHeader("X-User-Id"), ctx.GetHeader("X-User-Accounts")
@@ -31,7 +37,7 @@ func AuthorizationMiddleware() gin.HandlerFunc {
 		err := json.Unmarshal([]byte(userAccounts), &accountRolesMap)
 		if err != nil {
 			log.Printf("Failed to parse X-User-Accounts header as JSON: %v for request %s, header value: %s", err, ctx.Request.URL.Path, userAccounts)
-			ctx.JSON(http.StatusBadRequest, customerrors.BadRequestResponse)
+			ctx.JSON(http.StatusUnprocessableEntity, customerrors.UnprocessableEntityResponse)
 			ctx.Abort()
 			return
 		}
@@ -45,11 +51,13 @@ func AuthorizationMiddleware() gin.HandlerFunc {
 		}
 
 		ctx.Set("role", role)
-		ctx.Set("accountId", requiredAccountID)
 		ctx.Next()
 	}
 }
 
+// AdminOnlyMiddleware is a middleware that checks if the user has admin role.
+// If the user does not have admin role, it returns a 403 response.
+// If the user has admin role, it calls the next handler.
 func AdminOnlyMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		role := ctx.GetString("role")
