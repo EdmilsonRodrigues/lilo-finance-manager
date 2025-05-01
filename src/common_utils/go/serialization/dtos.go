@@ -1,6 +1,7 @@
 package serialization
 
 type QueryConditions map[string]interface{}
+type DataItem map[string]interface{}
 
 type ErrorResponse struct {
 	Details ErrorDetails `json:"details"`
@@ -13,7 +14,7 @@ type ErrorDetails struct {
 
 type JSONResponse struct {
 	Status string    `json:"status"`
-	Data   Marshaler `json:"data"`
+	Data   DataItem `json:"data"`
 }
 
 type PaginatedJSONResponse struct {
@@ -27,5 +28,5 @@ type PaginatedResponse struct {
 	Size       int                 `json:"page_size"`
 	TotalItems int                 `json:"total_items"`
 	Filters    QueryConditions     `json:"filters"`
-	Items      []Marshaler `json:"items"`
+	Items      []DataItem `json:"items"`
 }
