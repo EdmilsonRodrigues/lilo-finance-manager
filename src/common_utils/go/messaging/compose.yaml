@@ -1,6 +1,18 @@
 services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+    # restart: unless-stopped
+
   kafka:
-    image: apache/kafka:latest
-    container_name: broker
+    image: wurstmeister/kafka:latest
     ports:
       - "9092:9092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # DOCKER_API_VERSION: 1.22
+      KAFKA_ADVERTISED_HOST_NAME: localhost
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock
+    # restart: unless-stopped

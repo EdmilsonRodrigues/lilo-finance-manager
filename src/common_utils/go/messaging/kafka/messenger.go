@@ -2,17 +2,20 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
+	"strings"
 	"time"
 
 	kafka "github.com/segmentio/kafka-go"
 )
 
 type KafkaMessenger struct {
-	Topic         string
-	GroupID       string
-	BrokerAddress string
+	Topic           string
+	GroupID         string
+	BrokerAddresses []string
 
 	producer *kafka.Writer
 	consumer *kafka.Reader
@@ -46,31 +49,55 @@ const (
 //   - error: an error if the topic cannot be created or if there is a problem communicating with the kafka broker
 //
 // Example usage:
-//   messenger, err := NewKafkaMessenger("my-topic", "my-group", "localhost:9092")
-//   if err != nil {
-//     log.Fatal(err)
-//   }
-//   defer messenger.Close()
-func NewKafkaMessenger(topic string, groupID string, brokerAddress string) (*KafkaMessenger, error) {
+//
+//	messenger, err := NewKafkaMessenger("my-topic", "my-group", "localhost:9092")
+//	if err != nil {
+//	  log.Fatal(err)
+//	}
+//	defer messenger.Close()
+func NewKafkaMessenger(topic string, groupID string, brokerAddresses []string) (*KafkaMessenger, error) {
+	if len(brokerAddresses) == 0 {
+		return nil, fmt.Errorf("broker address is empty")
+	}
+	if topic == "" {
+		return nil, fmt.Errorf("topic is empty")
+	}
+
 	messenger := &KafkaMessenger{
-		Topic:         topic,
-		GroupID:       groupID,
-		BrokerAddress: brokerAddress,
+		Topic:           topic,
+		GroupID:         groupID,
+		BrokerAddresses: brokerAddresses,
 	}
 
 	messenger.producer = kafka.NewWriter(kafka.WriterConfig{
-		Brokers:      []string{brokerAddress},
-		Topic:        topic,
-		Logger:       log.New(log.Writer(), "KAFKA-PRODUCER: ", log.LstdFlags),
+		Brokers: brokerAddresses,
+		Topic:   topic,
+		Logger: kafka.LoggerFunc(func(s string, i ...interface{}) {
+			log.Printf("[DEBUG] "+s, i...)
+		}),
+		ErrorLogger: kafka.LoggerFunc(func(s string, i ...interface{}) {
+			log.Printf("[ERROR] "+s, i...)
+		}),
 		BatchSize:    defaultBatchSize,
 		BatchTimeout: defaultBatchTimeout,
 	})
 
 	messenger.consumer = kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{brokerAddress},
+		Brokers: brokerAddresses,
 		Topic:   topic,
 		GroupID: groupID,
-		Logger:  log.New(log.Writer(), "KAFKA-CONSUMER: ", log.LstdFlags),
+		Logger: kafka.LoggerFunc(func(s string, i ...interface{}) {
+			log.Printf("[DEBUG] "+s, i...)
+		}),
+		ErrorLogger: kafka.LoggerFunc(func(s string, i ...interface{}) {
+			log.Printf("[ERROR] "+s, i...)
+		}),
+		QueueCapacity: 100,
+		StartOffset:   kafka.FirstOffset,
+		RetentionTime: time.Hour * 24 * 7,
+		HeartbeatInterval: 3 * time.Second,
+		SessionTimeout: 30 * time.Second,
+		MaxAttempts: 5,
 	})
 
 	if err := messenger.EnsureTopicExists(defaultNumPartitions, defaultReplicationFactor); err != nil {
@@ -95,10 +122,11 @@ func NewKafkaMessenger(topic string, groupID string, brokerAddress string) (*Kaf
 //   - error: an error if any of the close operations fail
 //
 // Example usage:
-//   err := messenger.Close()
-//   if err != nil {
-//     log.Fatal(err)
-//   }
+//
+//	err := messenger.Close()
+//	if err != nil {
+//	  log.Fatal(err)
+//	}
 func (m *KafkaMessenger) Close() (err error) {
 	if m.producer != nil {
 		log.Println("KAFKA-PRODUCER: Closing producer")
@@ -135,10 +163,11 @@ func (m *KafkaMessenger) Close() (err error) {
 //   - error: an error if the message could not be written to the topic
 //
 // Example:
-//   err := messenger.ProduceMessage(context.Background(), "key", "message")
-//   if err != nil {
-// 		handle error
-//   }
+//
+//	  err := messenger.ProduceMessage(context.Background(), "key", "message")
+//	  if err != nil {
+//			handle error
+//	  }
 func (m *KafkaMessenger) ProduceMessage(ctx context.Context, key, message string) error {
 	if m.producer == nil {
 		return fmt.Errorf("producer is not initialized")
@@ -169,18 +198,24 @@ func (m *KafkaMessenger) ProduceMessage(ctx context.Context, key, message string
 //   - error: an error if the topic cannot be created or if there is a problem communicating with the kafka broker
 //
 // Example usage:
-//   err := messenger.EnsureTopicExists(3, 3)
-//   if err != nil {
-//     log.Fatal(err)
-//   }
+//
+//	err := messenger.EnsureTopicExists(3, 3)
+//	if err != nil {
+//	  log.Fatal(err)
+//	}
 func (m *KafkaMessenger) EnsureTopicExists(numPartitions, replicationFactor int) error {
-	if m.BrokerAddress == "" {
-		return fmt.Errorf("broker address is empty")
-	}
+	var conn *kafka.Conn
+	var dialErr error
 
-	conn, err := kafka.DialContext(context.Background(), "tcp", m.BrokerAddress)
-	if err != nil {
-		return fmt.Errorf("failed to dial kafka broker to create topic: %w", err)
+	for _, broker := range m.BrokerAddresses {
+		conn, dialErr = kafka.Dial("tcp", broker)
+		if dialErr == nil {
+			break
+		}
+		log.Printf("Failed to connect to %s: %v", broker, dialErr)
+	}
+	if dialErr != nil {
+		return fmt.Errorf("couldn't connect to any broker: %w", dialErr)
 	}
 	defer conn.Close()
 
@@ -245,8 +280,8 @@ func (m *KafkaMessenger) StartConsumer(ctx context.Context) (<-chan string, <-ch
 		return nil, nil, fmt.Errorf("consumer is already started")
 	}
 
-	m.messageChannel = make(chan string, 10)
-	m.errorChannel = make(chan error, 10)
+	m.messageChannel = make(chan string, 100)
+	m.errorChannel = make(chan error, 100)
 	m.consumerDone = make(chan struct{})
 
 	consumerCtx, cancel := context.WithCancel(ctx)
@@ -269,28 +304,37 @@ func (m *KafkaMessenger) StartConsumer(ctx context.Context) (<-chan string, <-ch
 			default:
 				msg, err := m.consumer.ReadMessage(consumerCtx)
 				if err != nil {
-					if err == context.Canceled || err == context.DeadlineExceeded {
-						log.Printf("KAFKA-CONSUMER: ReadMessage cancelled/timed out for topic '%s'", m.Topic)
+					if isNetworkError(err) {
+						log.Printf("Network error occurred for topic '%s': %v, retrying...", m.Topic, err)
+						time.Sleep(1 * time.Second)
 						continue
 					}
+					if err == context.Canceled || err == context.DeadlineExceeded {
+						log.Printf("KAFKA-CONSUMER: FetchMessage cancelled/timed out for topic '%s'", m.Topic)
+						continue
+					}
+
 					log.Printf("KAFKA-CONSUMER: Failed to read message from topic '%s': %v", m.Topic, err)
-					m.errorChannel <- fmt.Errorf("failed to read message: %w", err)
+					select {
+					case m.errorChannel <- fmt.Errorf("failed to read message: %w", err):
+						// Error sent successfully
+					case <-consumerCtx.Done():
+						return
+					case <-time.After(100 * time.Millisecond):
+						// If error channel is full, log and continue
+						log.Printf("KAFKA-CONSUMER: Error channel full, dropping error: %v", err)
+					}
 					continue
 				}
 
 				select {
 				case m.messageChannel <- string(msg.Value):
 					log.Printf("KAFKA-CONSUMER: Sent message to channel from offset %d", msg.Offset)
+				case <-time.After(1 * time.Second):
+					log.Printf("KAFKA-CONSUMER: Channel full, possible consumer stall\n")
 				case <-consumerCtx.Done():
 					log.Printf("KAFKA-CONSUMER: Context cancelled while sending message for topic '%s'", m.Topic)
-					continue
-				}
-
-				if err := m.consumer.CommitMessages(consumerCtx, msg); err != nil {
-					log.Printf("KAFKA-CONSUMER: Failed to commit message for topic '%s': %v", m.Topic, err)
-					m.errorChannel <- fmt.Errorf("failed to commit message: %w", err)
-				} else {
-					log.Printf("KAFKA-CONSUMER: Committed message offset %d", msg.Offset)
+					return
 				}
 			}
 		}
@@ -306,21 +350,31 @@ func (m *KafkaMessenger) StartConsumer(ctx context.Context) (<-chan string, <-ch
 // Returns:
 //   - error: an error if the consumer is not running
 func (m *KafkaMessenger) StopConsumer() error {
-    if m.consumerCancel == nil {
-        return fmt.Errorf("kafka consumer is not running")
-    }
+	if m.consumerCancel == nil {
+		return fmt.Errorf("kafka consumer is not running")
+	}
 
-    log.Printf("KAFKA-CONSUMER: Signaling consumer goroutine to stop for topic '%s'", m.Topic)
-    m.consumerCancel()
+	log.Printf("KAFKA-CONSUMER: Signaling consumer goroutine to stop for topic '%s'", m.Topic)
+	m.consumerCancel()
 
-    <-m.consumerDone
+	select {
+	case <-m.consumerDone:
+	case <-time.After(5 * time.Second):
+		log.Printf("Force closing consumer after timeout")
+	}
 
-    log.Printf("KAFKA-CONSUMER: Consumer goroutine for topic '%s' has stopped.", m.Topic)
+	log.Printf("KAFKA-CONSUMER: Consumer goroutine for topic '%s' has stopped.", m.Topic)
 
-    m.messageChannel = nil
-    m.errorChannel = nil
-    m.consumerCancel = nil
-    m.consumerDone = nil
+	m.messageChannel = nil
+	m.errorChannel = nil
+	m.consumerCancel = nil
+	m.consumerDone = nil
 
 	return nil
+}
+
+func isNetworkError(err error) bool {
+	return errors.Is(err, io.EOF) ||
+		strings.Contains(err.Error(), "connection reset") ||
+		strings.Contains(err.Error(), "broken pipe")
 }

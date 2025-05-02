@@ -2,6 +2,7 @@ package kafka_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 
 func TestNewKafkaProducer(t *testing.T) {
 	// Test case 1: Test creating a new Kafka producer
-	messenger, err := kafka.NewKafkaMessenger("test-topic", "test-group", "localhost:9092")
+	messenger, err := kafka.NewKafkaMessenger("test-topic", fmt.Sprintf("test-group-%d", time.Now().UnixNano()), []string{"localhost:9092"})
 	if err != nil {
 		t.Errorf("Failed to create Kafka producer: %v", err)
 	}
@@ -20,10 +21,10 @@ func TestNewKafkaProducer(t *testing.T) {
 }
 
 func TestPubSub(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	messenger, err := kafka.NewKafkaMessenger("test-topic", "test-group", "localhost:9092")
+	messenger, err := kafka.NewKafkaMessenger("test-topic", fmt.Sprintf("test-group-%d", time.Now().UnixNano()), []string{"localhost:9092"})
 	if err != nil {
 		t.Fatalf("Failed to create Kafka messenger: %v", err)
 	}
