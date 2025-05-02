@@ -15,7 +15,7 @@ jobs:
         strategy:
           matrix:
             service:
-              - common_utils/python/messagery
+              - common_utils/python/messanging
               - user_management
         steps:
         - uses: actions/checkout@v4
