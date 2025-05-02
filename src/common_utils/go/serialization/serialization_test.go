@@ -119,7 +119,11 @@ func TestFilterSerializerFields(t *testing.T) {
 func TestCreatePaginatedResponse(t *testing.T) {
 	t.Run("should create paginated response", func(t *testing.T) {
 		assertion := func(value string, value2 string) bool {
-			response := serialization.CreatePaginatedResponse(1, 10, 100, serialization.QueryConditions{}, []serialization.DataItem{{"Value": value, "Value2": value2}})
+			response, err := serialization.CreatePaginatedResponse(1, 10, 100, serialization.QueryConditions{}, []serialization.Serializer{&TestSerializer{Value: value, Value2: value2}}, []string{})
+			if err != nil {
+				t.Error(err)
+				return false
+			}
 			if response.Status != "success" {
 				t.Errorf("expected success, got %s", response.Status)
 				return false
@@ -144,11 +148,11 @@ func TestCreatePaginatedResponse(t *testing.T) {
 				t.Errorf("expected 1, got %d", len(response.Data.Items))
 				return false
 			}
-			if response.Data.Items[0]["Value"] != value {
+			if response.Data.Items[0]["value"] != value {
 				t.Errorf("expected %s, got %v", value, response.Data.Items[0])
 				return false
 			}
-			if response.Data.Items[0]["Value2"] != value2 {
+			if response.Data.Items[0]["value2"] != value2 {
 				t.Errorf("expected %s, got %v", value2, response.Data.Items[0])
 				return false
 			}
@@ -163,7 +167,12 @@ func TestCreatePaginatedResponse(t *testing.T) {
 
 	t.Run("should create paginated response with no size", func(t *testing.T) {
 		assertion := func() bool {
-			response := serialization.CreatePaginatedResponse(0,0,0, serialization.QueryConditions{}, []serialization.DataItem{})
+
+			response, err := serialization.CreatePaginatedResponse(0,0,0, serialization.QueryConditions{}, []serialization.Serializer{}, []string{"Value", "Value2"})
+			if err != nil {
+				t.Error(err)
+				return false
+			}
 			if response.Status != "success" {
 				t.Errorf("expected success, got %s", response.Status)
 				return false
@@ -207,14 +216,14 @@ type TestModel struct {
 	Value2 string
 }
 
-func (s *TestSerializer) Marshal() serialization.JSONResponse {
+func (s *TestSerializer) Marshal(filters serialization.QueryConditions) (serialization.JSONResponse, error) {
 	return serialization.JSONResponse{
 		Status: "success",
 		Data: serialization.DataItem{
 			"value":  s.Value,
 			"value2": s.Value2,
 		},
-	}
+	}, nil
 }
 
 func (s *TestSerializer) BindModel(model interface{}) error {

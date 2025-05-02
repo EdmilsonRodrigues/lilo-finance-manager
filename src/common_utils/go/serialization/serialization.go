@@ -7,7 +7,7 @@ import (
 )
 
 type Marshaler interface {
-	Marshal() JSONResponse
+	Marshal(filters QueryConditions) (JSONResponse, error)
 }
 
 type ModelBinder interface {
@@ -67,7 +67,7 @@ func BindArray[ResponseType Serializer, ModelType any](models []ModelType) ([]Re
 // Returns:
 //   - PaginatedJSONResponse: the structured response containing pagination details and items
 //   - error: an error if any occurs during response creation
-func CreatePaginatedResponse(page, size, total int, filters QueryConditions, items []DataItem) (PaginatedJSONResponse) {
+func CreatePaginatedResponse(page, size, total int, filters QueryConditions, items []Serializer, fields []string) (PaginatedJSONResponse, error) {
 	totalPages := 0
 	if size > 0 {
 		totalPages = (total + size - 1) / size
@@ -75,6 +75,16 @@ func CreatePaginatedResponse(page, size, total int, filters QueryConditions, ite
 			totalPages = 0
 		}
 	}
+
+	responseItems := make([]DataItem, len(items))
+	for i, item := range items {
+		responseItem, err := FilterSerializerFields(item, fields)
+		if err != nil {
+			return PaginatedJSONResponse{}, fmt.Errorf("failed to filter serializer fields: %v", err)
+		}
+		responseItems[i] = responseItem
+	}
+
 	return PaginatedJSONResponse{
 		Status: "success",
 		Data: PaginatedResponse{
@@ -83,9 +93,9 @@ func CreatePaginatedResponse(page, size, total int, filters QueryConditions, ite
 			Size:       size,
 			TotalItems: total,
 			Filters:    filters,
-			Items:      items,
+			Items:      responseItems,
 		},
-	}
+	}, nil
 }
 
 // FilterSerializerFields filters the fields of a serialized struct based on a given list of field names.
@@ -99,7 +109,7 @@ func CreatePaginatedResponse(page, size, total int, filters QueryConditions, ite
 // Returns:
 //   - DataItem: a map containing only the specified fields from the serializer
 //   - error: an error if any occurs during marshaling or unmarshaling
-func FilterSerializerFields(serializer Marshaler, fields []string) (DataItem, error) {
+func FilterSerializerFields(serializer Serializer, fields []string) (DataItem, error) {
 	marshalled, err := json.Marshal(serializer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal serializer: %v", err)
