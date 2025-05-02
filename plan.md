@@ -35,13 +35,13 @@ This project will have an excessive number of microservices, for the purpose of 
 - Framework: FastAPI
 - Database: MongoDB
 - Test: Pytest
-- Deploy: ECS
+- Deploy: EC2
 - ORM: None
 - Publishes: BudgetThresholdExceeded events (Kafka)
 - Responsabilities:
   - Budget creation and management for different time periods and categories
   - Budget tracking and alerts
-  - Budget allocation and allocation tracking   
+  - Budget allocation and allocation tracking
 
 ## Reporting and Analytics
 - Language: Python
@@ -63,7 +63,7 @@ This project will have an excessive number of microservices, for the purpose of 
 - Framework: Gin
 - Database: RDS
 - Test: stdlib
-- Deploy: ECS
+- Deploy: EC2
 - ORM: GORM
 - Responsabilities:
   - Category creation and management
@@ -90,7 +90,7 @@ This project will have an excessive number of microservices, for the purpose of 
 - Test: Pytest
 - ORM: None
 - Communication: GraphQL
-- Deploy: Elastic BeanStalk
+- Deploy: EC2
 - Responsabilities:
   - API Gateway for all microservices
 
@@ -101,8 +101,8 @@ This project will have an excessive number of microservices, for the purpose of 
 - Database: None
 - Deploy: S3 and CloudFront
 - Responsabilities:
-  - User interface for managing financial data  
-  - Visualization of financial data 
+  - User interface for managing financial data
+  - Visualization of financial data
   - Integration with the API Gateway
 
 ## Kafka
@@ -113,7 +113,7 @@ This project will have an excessive number of microservices, for the purpose of 
 - Language: Ruby
 - Framework: Ruby on Rails (API mode)
 - Database: PostgreSQL (or SQLite)
-- Deploy: Beanstalk
+- Deploy: EC2
 - Test: RSpec
 - Responsibilities:
   - Consumes: BudgetThresholdExceeded, UserCreated, UserUpdated events (from Kafka)
@@ -135,4 +135,3 @@ This project will have an excessive number of microservices, for the purpose of 
 - Prometheus
 - Jaeger
 - Loki
-

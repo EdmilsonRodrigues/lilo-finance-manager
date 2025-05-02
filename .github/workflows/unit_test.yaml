@@ -3,9 +3,14 @@ name: Run Unit Tests
 on: [push, pull_request]
 
 jobs:
-    test-messagery:
-        name: Run Unit Tests on Messagey
+    test-unit-python:
+        name: Run Unit Tests on Python Module ${{ matrix.service }}
         runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            service:
+              - common_utils/python/messaging
+              - user_management
         steps:
         - uses: actions/checkout@v4
 
@@ -14,33 +19,71 @@ jobs:
           with:
             python-version: "3.13"
 
+        - name: Get service base path
+          id: service_path
+          run: |
+            echo "base_path=src/${{ matrix.service }}" >> $GITHUB_OUTPUT
+
         - name: Install the latest version of uv
           uses: astral-sh/setup-uv@v5
           with:
             version: latest
             enable-cache: true
-            cache-suffix: "messagery"
-            cache-dependency-glob: "src/common_utils/messagery/uv.lock"
+            cache-suffix: "${{ matrix.service }}"
+            cache-dependency-glob: "${{ steps.service_path.outputs.base_path }}/uv.lock"
 
         - name: Sync dependencies
           run: |
-            cd src/common_utils/messagery
+            cd "${{ steps.service_path.outputs.base_path }}"
             uv sync --all-groups
 
         - name: Run Linting
           run: |
-            cd src/common_utils/messagery
+            cd "${{ steps.service_path.outputs.base_path }}"
             source .venv/bin/activate
             make lint
 
         - name: Run Mypy
           run: |
-            cd src/common_utils/messagery
+            cd "${{ steps.service_path.outputs.base_path }}"
             source .venv/bin/activate
             make mypy
 
         - name: Run Unit Tests
           run: |
-            cd src/common_utils/messagery
+            cd "${{ steps.service_path.outputs.base_path }}"
             source .venv/bin/activate
             make unit-test
+
+    test-unit-go:
+      name: Run Unit Tests on Go Module ${{ matrix.service }}
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          service:
+            - common_utils/go/serialization
+      steps:
+      - uses: actions/checkout@v4
+
+      - name: Get service base path
+        id: service_path
+        run: |
+          echo "base_path=src/${{ matrix.service }}" >> $GITHUB_OUTPUT
+
+      - name: Add Go Mod and Go Sum Paths to Outputs
+        id: get_go_mod_path
+        run: |
+          echo "go_mod_path=${{ steps.service_path.outputs.base_path }}/go.mod" >> $GITHUB_OUTPUT
+          if [ -f "${{ steps.service_path.outputs.go_mod_path }}/go.sum" ]; then go_sum_exists=true; fi
+          echo "go_sum_exists=${go_sum_exists}" >> $GITHUB_OUTPUT
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "${{ steps.service_path.outputs.base_path }}/go.mod"
+          check-latest: true
+
+      - name: Run unit tests
+        run: |
+          cd "${{ steps.service_path.outputs.base_path }}"
+          make unit-test

@@ -1,0 +1,51 @@
+name: Run End To End Tests
+
+on:
+  push:
+    branches-ignore:
+      - '*/*'
+      - '*dev'
+  pull_request:
+    branches-ignore:
+      - '*/*'
+      - '*dev'
+
+jobs:
+    test-e2e:
+        name: Run End To End Tests on ${{ matrix.service }}
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            service:
+            - user_management
+        steps:
+        - uses: actions/checkout@v4
+
+        - name: Set up Python 3.13
+          uses: actions/setup-python@v5
+          with:
+            python-version: "3.13"
+
+        - name: Get service base path
+          id: service_path
+          run: |
+            echo "base_path=src/${{ matrix.service }}" >> $GITHUB_OUTPUT
+
+        - name: Install the latest version of uv
+          uses: astral-sh/setup-uv@v5
+          with:
+            version: latest
+            enable-cache: true
+            cache-suffix: "e2e-${{ matrix.service }}"
+            cache-dependency-glob: "${{ steps.service_path.outputs.base_path }}/uv.lock"
+
+        - name: Sync dependencies
+          run: |
+            cd "${{ steps.service_path.outputs.base_path }}"
+            uv sync --group test
+
+        - name: Run End To End Tests
+          run: |
+            cd "${{ steps.service_path.outputs.base_path }}"
+            source .venv/bin/activate
+            make e2e-test
