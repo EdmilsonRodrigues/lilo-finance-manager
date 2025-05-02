@@ -3,15 +3,21 @@ package kafka_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/messaging/kafka"
 )
 
+var kafkaBroker = os.Getenv("TEST_KAFKA_BROKER")
+
 func TestNewKafkaProducer(t *testing.T) {
+	if kafkaBroker == "" {
+		kafkaBroker = "localhost:9092"
+	}
 	// Test case 1: Test creating a new Kafka producer
-	messenger, err := kafka.NewKafkaMessenger("test-topic", fmt.Sprintf("test-group-%d", time.Now().UnixNano()), []string{"localhost:9092"})
+	messenger, err := kafka.NewKafkaMessenger("test-topic", fmt.Sprintf("test-group-%d", time.Now().UnixNano()), []string{kafkaBroker})
 	if err != nil {
 		t.Errorf("Failed to create Kafka producer: %v", err)
 	}
@@ -21,10 +27,13 @@ func TestNewKafkaProducer(t *testing.T) {
 }
 
 func TestPubSub(t *testing.T) {
+	if kafkaBroker == "" {
+		kafkaBroker = "localhost:9092"
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	messenger, err := kafka.NewKafkaMessenger("test-topic", fmt.Sprintf("test-group-%d", time.Now().UnixNano()), []string{"localhost:9092"})
+	messenger, err := kafka.NewKafkaMessenger("test-topic", fmt.Sprintf("test-group-%d", time.Now().UnixNano()), []string{kafkaBroker})
 	if err != nil {
 		t.Fatalf("Failed to create Kafka messenger: %v", err)
 	}
