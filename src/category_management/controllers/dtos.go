@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/models"
@@ -52,14 +51,15 @@ func (category *CategoryResponse) BindModel(model interface{}) error {
 	return nil
 }
 
-func (category *CategoryResponse) Marshal(filters serialization.QueryConditions) serialization.JSONResponse {
-	serialization.FilterSerializerFields(category, filters)
-	marshalled, _ := json.Marshal(category)
-	json.Unmarshal(marshalled, category)
+func (category *CategoryResponse) Marshal(fields []string) (serialization.JSONResponse, error) {
+	data, err := serialization.FilterSerializerFields(category, fields)
+	if err != nil {
+		return serialization.JSONResponse{}, err
+	}
 	return serialization.JSONResponse{
 		Status: "success",
-		Data:   category,
-	}
+		Data:   data,
+	}, nil
 }
 
 type UpdateCategoryModel struct {
