@@ -9,7 +9,7 @@ jobs:
         strategy:
           matrix:
             service:
-              - common_utils/python/messanging
+              - common_utils/python/messaging
               - user_management
         steps:
         - uses: actions/checkout@v4
