@@ -9,13 +9,13 @@ on:
       - '*/*'
 
 jobs:
-    test-integration:
-        name: Run Integration Tests on ${{ matrix.service }}
+    test-python-integration:
+        name: Run Integration Tests on Python Module ${{ matrix.service }}
         runs-on: ubuntu-latest
         strategy:
           matrix:
             service:
-              - common_utils/messagery
+              - common_utils/python/messaging
               - user_management
         steps:
         - uses: actions/checkout@v4
@@ -48,3 +48,36 @@ jobs:
             cd "${{ steps.service_path.outputs.base_path }}"
             source .venv/bin/activate
             make integration-test
+
+    test-go-integration:
+      name: Run Integration Tests on Go Module ${{ matrix.service }}
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          service:
+            - common_utils/go/messaging
+      steps:
+      - uses: actions/checkout@v4
+
+      - name: Get service base path
+        id: service_path
+        run: |
+          echo "base_path=src/${{ matrix.service }}" >> $GITHUB_OUTPUT
+
+      - name: Add Go Mod and Go Sum Paths to Outputs
+        id: get_go_mod_path
+        run: |
+          echo "go_mod_path=${{ steps.service_path.outputs.base_path }}/go.mod" >> $GITHUB_OUTPUT
+          if [ -f "${{ steps.service_path.outputs.go_mod_path }}/go.sum" ]; then go_sum_exists=true; fi
+          echo "go_sum_exists=${go_sum_exists}" >> $GITHUB_OUTPUT
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "${{ steps.service_path.outputs.base_path }}/go.mod"
+          check-latest: true
+
+      - name: Run integration tests
+        run: |
+          cd "${{ steps.service_path.outputs.base_path }}"
+          make integration-test
