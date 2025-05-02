@@ -1,12 +1,12 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/models"
 	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization"
 )
-
 
 type CategoryResponse struct {
 	ID          uint    `json:"id"`
@@ -18,6 +18,25 @@ type CategoryResponse struct {
 	Current     float64 `json:"current"`
 }
 
+// BindModel binds the given model to this CategoryResponse.
+// The model must be a pointer to models.Category.
+// If the model is not valid, an error is returned.
+//
+// Parameters:
+//   - model (models.Category): the model to bind to this CategoryResponse
+//
+// Returns:
+//   - error: an error if the model is not valid
+//
+// Example:
+//
+//	model := ctx.BindJSON(&category)
+//	category := CategoryResponse{}
+//	err := category.BindModel(model)
+//	if err != nil {
+//	  ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+//	  return
+//	}
 func (category *CategoryResponse) BindModel(model interface{}) error {
 	cat, ok := model.(models.Category)
 	if !ok {
@@ -33,7 +52,10 @@ func (category *CategoryResponse) BindModel(model interface{}) error {
 	return nil
 }
 
-func (category *CategoryResponse) Marshal() serialization.JSONResponse {
+func (category *CategoryResponse) Marshal(filters serialization.QueryConditions) serialization.JSONResponse {
+	serialization.FilterSerializerFields(category, filters)
+	marshalled, _ := json.Marshal(category)
+	json.Unmarshal(marshalled, category)
 	return serialization.JSONResponse{
 		Status: "success",
 		Data:   category,

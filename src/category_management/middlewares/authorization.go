@@ -15,6 +15,12 @@ import (
 // If the headers are missing or invalid, it returns a 400 or 403 response.
 // If the accountId parameter is missing, it returns a 403 response.
 // If the user has access, it sets the role and accountId in the gin context and calls the next handler.
+//
+// Returns:
+//   - gin.HandlerFunc: the middleware function
+//
+// Example:
+//   group.GET("/:accountId", AuthorizationMiddleware(), categoryController.GetCategory)
 func AuthorizationMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		userId, userAccounts := ctx.GetHeader("X-User-Id"), ctx.GetHeader("X-User-Accounts")
@@ -58,6 +64,12 @@ func AuthorizationMiddleware() gin.HandlerFunc {
 // AdminOnlyMiddleware is a middleware that checks if the user has admin role.
 // If the user does not have admin role, it returns a 403 response.
 // If the user has admin role, it calls the next handler.
+//
+// Returns:
+//   - gin.HandlerFunc: the middleware function
+//
+// Example:
+//   group.GET("/", AdminOnlyMiddleware(), categoryController.GetCategories)
 func AdminOnlyMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		role := ctx.GetString("role")
@@ -71,6 +83,15 @@ func AdminOnlyMiddleware() gin.HandlerFunc {
 	}
 }
 
+// EditorOrAdminOnlyMiddleware is a middleware that checks if the user has admin or editor role.
+// If the user does not have either role, it returns a 403 response.
+// If the user has either admin or editor role, it calls the next handler.
+//
+// Returns:
+//   - gin.HandlerFunc: the middleware function
+//
+// Example:
+//   group.GET("/", EditorOrAdminOnlyMiddleware(), categoryController.GetCategories)
 func EditorOrAdminOnlyMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		role := ctx.GetString("role")

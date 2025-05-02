@@ -6,6 +6,8 @@ github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serializat
 github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization v0.0.0-20250429070341-7e4f8947bd9b/go.mod h1:3kf2E/qobOidOsEZtLlyXK0CWRskAex6pvZeD9zro8Q=
 github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization v0.0.0-20250430105852-f5712fa911e2 h1:h1ueahfkgMiuo3FqKH086JJc+23F+PPsXnBiAUxt+a0=
 github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization v0.0.0-20250430105852-f5712fa911e2/go.mod h1:3kf2E/qobOidOsEZtLlyXK0CWRskAex6pvZeD9zro8Q=
+github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization v0.0.0-20250502165727-ea0dd77feafb h1:mMaCGsqC+cTRSCk0/FGDtOeYLzYtJzH45b3gnLKWg2E=
+github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization v0.0.0-20250502165727-ea0dd77feafb/go.mod h1:3kf2E/qobOidOsEZtLlyXK0CWRskAex6pvZeD9zro8Q=
 github.com/bytedance/sonic v1.11.6 h1:oUp34TzMlL+OY1OUWxHqsdkgC/Zfc85zGqw9siXjrc0=
 github.com/bytedance/sonic v1.11.6/go.mod h1:LysEHSvpvDySVdC2f87zGWf6CIKJcAvqab1ZaiQtds4=
 github.com/bytedance/sonic/loader v0.1.1 h1:c+e5Pt1k/cy5wMveRDyk2X4B9hF4g7an8N3zCYjJFNM=
