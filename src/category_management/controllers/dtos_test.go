@@ -3,11 +3,13 @@
 package controllers_test
 
 import (
+	"reflect"
 	"testing"
 	"testing/quick"
 
 	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/controllers"
 	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/models"
+	httpserialization "github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization/http_serialization"
 )
 
 func TestCategoryResponseBindModel(t *testing.T) {
@@ -75,48 +77,31 @@ func TestCategoryResponseMarshal(t *testing.T) {
 			Budget:      budget,
 			Current:     current,
 		}
-		response := category.Marshal()
-		if response.Status != "success" {
-			t.Errorf("Expected Status to be success, got %s", response.Status)
+		response, err := category.Marshal([]string{})
+
+		expected := httpserialization.JSONResponse{
+			Status: "success",
+			Data: map[string]interface{}{
+				"id":          float64(id),
+				"account_id":  accountId,
+				"name":        name,
+				"description": description,
+				"color":       color,
+				"budget":      budget,
+				"current":     current,
+			},
+		}
+
+		if err != nil {
+			t.Errorf("Error marshaling: %v", err)
 			return false
 		}
-		if response.Data == nil {
-			t.Errorf("Expected Data to not be nil")
+
+		if !reflect.DeepEqual(response, expected) {
+			t.Errorf("Expected %v, got %v", expected, response)
 			return false
 		}
-		data, ok := response.Data.(*controllers.CategoryResponse)
-		if !ok {
-			t.Errorf("Expected Data to be of type *controllers.CategoryResponse, got %T", response.Data)
-			return false
-		}
-		if data.ID != id {
-			t.Errorf("Expected ID to be %d, got %d", id, data.ID)
-			return false
-		}
-		if data.AccountID != accountId {
-			t.Errorf("Expected AccountID to be %s, got %s", accountId, data.AccountID)
-			return false
-		}
-		if data.Name != name {
-			t.Errorf("Expected Name to be %s, got %s", name, data.Name)
-			return false
-		}
-		if data.Description != description {
-			t.Errorf("Expected Description to be %s, got %s", description, data.Description)
-			return false
-		}
-		if data.Color != color {
-			t.Errorf("Expected Color to be %s, got %s", color, data.Color)
-			return false
-		}
-		if data.Budget != budget {
-			t.Errorf("Expected Budget to be %f, got %f", budget, data.Budget)
-			return false
-		}
-		if data.Current != current {
-			t.Errorf("Expected Current to be %f, got %f", current, data.Current)
-			return false
-		}
+
 		return true
 	}
 	if err := quick.Check(assertion, &quick.Config{

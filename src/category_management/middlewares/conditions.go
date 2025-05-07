@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	customerrors "github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/custom_errors"
-	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,10 +24,10 @@ import (
 //   - gin.HandlerFunc: the middleware function
 //
 // Example:
-//   group.GET("/:id", AddParamToConditionsMiddleware("id", "id"), categoryController.GetCategoryById)
 //
+//	group.GET("/:id", AddParamToConditionsMiddleware("id", "id"), categoryController.GetCategoryById)
 func AddParamToConditionsMiddleware(paramName, columnName string) gin.HandlerFunc {
-	if paramName == "" || columnName == "" {
+	if paramName == ""  {
 		log.Fatal("AddParamToConditionsMiddleware called with empty paramName or columnName")
 	}
 
@@ -41,20 +40,21 @@ func AddParamToConditionsMiddleware(paramName, columnName string) gin.HandlerFun
 			return
 		}
 
-		queryConds, err := getQueryConditions(ctx)
-		if err != nil {
-			log.Println("Error parsing conditions for request ", ctx.Request.URL, " with params ", ctx.Params)
-			ctx.JSON(500, customerrors.InternalServerError(err.Error()))
-			ctx.Abort()
-			return
+		queryConditions, queryValues := GetConditions(ctx)
+
+		queryValues = append(queryValues, paramValue)
+		condition := fmt.Sprintf("%s = ?", columnName)
+		if queryConditions == "" {
+			queryConditions = condition
+		} else {
+			queryConditions = strings.Join([]string{queryConditions, condition}, " AND ")
 		}
 
-		(*queryConds)[columnName] = paramValue
-		ctx.Set("conditions", queryConds)
+		ctx.Set("conditions", queryConditions)
+		ctx.Set("conditions_values", queryValues)
 		ctx.Next()
 	}
 }
-
 
 // ParsePaginationParamsMiddleware parses the page and page_size query parameters and sets them in the gin context.
 // If the page parameter is not present, it sets it to 1.
@@ -66,13 +66,14 @@ func AddParamToConditionsMiddleware(paramName, columnName string) gin.HandlerFun
 //   - gin.HandlerFunc: the middleware function
 //
 // Example:
-//   group.GET("/", ParsePaginationParamsMiddleware(), categoryController.GetCategories)
+//
+//	group.GET("/", ParsePaginationParamsMiddleware(), categoryController.GetCategories)
 func ParsePaginationParamsMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		page, pageSize := ctx.Query("page"), ctx.Query("page_size")
 		var (
 			pageNumber, pageSizeNumber int
-			err error
+			err                        error
 		)
 
 		pageNumber, err = parsePageNumber(page)
@@ -98,24 +99,18 @@ func ParsePaginationParamsMiddleware() gin.HandlerFunc {
 }
 
 // ParseFiltersMiddleware parses the filters query parameter and sets it in the gin context.
-// The filters parameter is a map of key-value pairs, passed as a query parameter.
-// If the parameter is not present, it sets an empty map in the context.
+// It should be run after all the AddParamToConditionsMiddleware functions.
 // If there is an error parsing the filters parameter, it returns a 422 response.
 //
 // Returns:
 //   - gin.HandlerFunc: the middleware function
 //
 // Example:
-//   group.GET("/", ParseFiltersMiddleware(), categoryController.GetCategories)
+//
+//	group.GET("/", ParseFiltersMiddleware(), categoryController.GetCategories)
 func ParseFiltersMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		queryConds, err := getQueryConditions(ctx)
-		if err != nil {
-			log.Println("Error parsing conditions for request ", ctx.Request.URL, " with params ", ctx.Params)
-			ctx.JSON(500, customerrors.InternalServerError(err.Error()))
-			ctx.Abort()
-			return
-		}
+		queryConditions, queryValues := GetConditions(ctx)
 
 		filters, err := parseQueryMap(ctx.Query("filters"))
 		if err != nil {
@@ -124,9 +119,17 @@ func ParseFiltersMiddleware() gin.HandlerFunc {
 			ctx.Abort()
 			return
 		}
+		ctx.Set("filters", filters)
 
-		(*queryConds)["filters"] = filters
-		ctx.Set("conditions", queryConds)
+		var builder strings.Builder
+		builder.WriteString(fmt.Sprintf("%s AND ", queryConditions))
+		for key, value := range filters {
+			builder.WriteString(fmt.Sprintf("%s = ? AND ", key))
+			queryValues = append(queryValues, value)
+		}
+		queryConditions = builder.String()[:builder.Len()-5]
+		ctx.Set("conditions", queryConditions)
+		ctx.Set("conditions_values", queryValues)
 		ctx.Next()
 	}
 }
@@ -139,50 +142,14 @@ func ParseFiltersMiddleware() gin.HandlerFunc {
 //   - gin.HandlerFunc: the middleware function
 //
 // Example:
-//   group.GET("/", ParseReturnFieldsMiddleware(), categoryController.GetCategories)
+//
+//	group.GET("/", ParseReturnFieldsMiddleware(), categoryController.GetCategories)
 func ParseReturnFieldsMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		returnFields := parseQueryArray(ctx.Query("return_fields"))
 		ctx.Set("returnFields", returnFields)
 		ctx.Next()
 	}
-}
-
-
-// getQueryConditions gets the query conditions from the gin context or creates a new map if it does not exist.
-// It returns the query conditions and an error if the conditions could not be parsed.
-// If the conditions are not present in the context, it returns an empty map.
-//
-// Parameters:
-//   - ctx: the gin context
-//
-// Returns:
-//   - queryConditions: the query conditions
-//   - err: an error
-//
-// Example:
-//   queryConditions, err := getQueryConditions(ctx)
-//   if err != nil {
-//       log.Println("Error parsing conditions for request ", ctx.Request.URL, " with params ", ctx.Params)
-//   }
-//   ctx.JSON(500, customerrors.InternalServerError(err.Error()))
-//   ctx.Abort()
-//   return
-func getQueryConditions(ctx *gin.Context) (queryConditions *serialization.QueryConditions, err error) {
-	conds, exists := ctx.Get("conditions")
-
-	if exists {
-		var ok bool
-		queryConditions, ok = conds.(*serialization.QueryConditions)
-		if !ok {
-			err = fmt.Errorf("error parsing the context conditions")
-			return
-		}
-	} else {
-		newConds := make(serialization.QueryConditions)
-		queryConditions = &newConds
-	}
-	return
 }
 
 // parseQueryMap takes a comma-separated string of key-value pairs in the format "key:value,key:value"
@@ -237,7 +204,6 @@ func parseQueryArray(query string) (queryConditions []string) {
 	return
 }
 
-
 // parsePageNumber converts a page string to an integer page number.
 // If the page string is empty, it defaults to 1.
 // Returns an error if the page string is not a valid integer.
@@ -250,10 +216,11 @@ func parseQueryArray(query string) (queryConditions []string) {
 //   - error: an error if the page string is not a valid integer
 //
 // Example:
-//   pageNumber, err := parsePageNumber("10")
-//   if err != nil {
-//       log.Println("Error parsing page number for request ", ctx.Request.URL, " with params ", ctx.Params)
-//   }
+//
+//	pageNumber, err := parsePageNumber("10")
+//	if err != nil {
+//	    log.Println("Error parsing page number for request ", ctx.Request.URL, " with params ", ctx.Params)
+//	}
 func parsePageNumber(page string) (int, error) {
 	if page == "" {
 		return 1, nil
@@ -280,7 +247,8 @@ func parsePageNumber(page string) (int, error) {
 //   - error: an error if the string does not represent a valid integer or if the page size is greater than 100
 //
 // Example:
-//   pageSize, err := parsePageSize("20")
+//
+//	pageSize, err := parsePageSize("20")
 func parsePageSize(pageSize string) (int, error) {
 	if pageSize == "" {
 		return 10, nil
@@ -296,4 +264,15 @@ func parsePageSize(pageSize string) (int, error) {
 		pageSizeNumber = 100
 	}
 	return pageSizeNumber, nil
+}
+
+func GetConditions(ctx *gin.Context) (queryConditions string, queryValues []interface{}) {
+	queryConditions = ctx.GetString("conditions")
+	values, exists := ctx.Get("conditions_values")
+	if !exists {
+		queryValues = make([]interface{}, 0)
+	} else {
+		queryValues = values.([]interface{})
+	}
+	return
 }

@@ -1,5 +1,3 @@
-//go:build unit
-
 package middlewares_test
 
 import (
@@ -14,18 +12,22 @@ import (
 
 	customerrors "github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/custom_errors"
 	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/middlewares"
-	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization"
+	serialization "github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization/http_serialization"
 	"github.com/gin-gonic/gin"
 )
 
 func TestAuthorizationMiddleware(t *testing.T) {
 	t.Run("should authenticate user if the user has access to the account", func(t *testing.T) {
 		assertion := func(accountId, userId, otherAccountId string) bool {
+			accountId = formatQueryValue(accountId)
+			if userId == "" || accountId == "" || otherAccountId == "" {
+				return true
+			}
 			ctx, _ := getContext()
 			ctx.Request = &http.Request{
 				Header: map[string][]string{
 					"X-User-Id":       {userId},
-					"X-User-Accounts": {fmt.Sprintf(`{"%s": "admin", "%s": "user"}`, accountId, otherAccountId)},
+					"X-User-Accounts": {fmt.Sprintf(`{"%s": "admin", "%s": "user"}`, accountId, formatQueryValue(otherAccountId))},
 				},
 			}
 			ctx.Params = []gin.Param{{Key: "accountId", Value: accountId}}
@@ -58,9 +60,9 @@ func TestAuthorizationMiddleware(t *testing.T) {
 			ctx.Request = &http.Request{
 				Header: map[string][]string{
 					"X-User-Id":       {userId},
-					"X-User-Accounts": {fmt.Sprintf(`{"%s": "user"}`, otherAccountId)},
+					"X-User-Accounts": {fmt.Sprintf(`{"%s": "user"}`, formatQueryValue(otherAccountId))},
 				},
-				URL: &url.URL{Path: fmt.Sprintf("/accounts/%s", accountId)},
+				URL: &url.URL{Path: fmt.Sprintf("/accounts/%s", formatQueryValue(accountId))},
 			}
 			ctx.Params = []gin.Param{{Key: "accountId", Value: accountId}}
 			middleware := middlewares.AuthorizationMiddleware()
@@ -105,9 +107,9 @@ func TestAuthorizationMiddleware(t *testing.T) {
 			ctx, body := getContext()
 			ctx.Request = &http.Request{
 				Header: map[string][]string{
-					"X-User-Accounts": {fmt.Sprintf(`{"%s": "user"}`, otherAccountId)},
+					"X-User-Accounts": {fmt.Sprintf(`{"%s": "user"}`, formatQueryValue(otherAccountId))},
 				},
-				URL: &url.URL{Path: fmt.Sprintf("/accounts/%s", accountId)},
+				URL: &url.URL{Path: fmt.Sprintf("/accounts/%s", formatQueryValue(accountId))},
 			}
 			ctx.Params = []gin.Param{{Key: "accountId", Value: accountId}}
 			middleware := middlewares.AuthorizationMiddleware()
@@ -153,7 +155,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 				Header: map[string][]string{
 					"X-User-Id": {userId},
 				},
-				URL: &url.URL{Path: fmt.Sprintf("/accounts/%s", accountId)},
+				URL: &url.URL{Path: fmt.Sprintf("/accounts/%s",formatQueryValue(accountId))},
 			}
 			ctx.Params = []gin.Param{{Key: "accountId", Value: accountId}}
 			middleware := middlewares.AuthorizationMiddleware()
@@ -196,7 +198,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 			ctx.Request = &http.Request{
 				Header: map[string][]string{
 					"X-User-Id":       {userId},
-					"X-User-Accounts": {fmt.Sprintf(`{"%s": "user"}`, otherAccountId)},
+					"X-User-Accounts": {fmt.Sprintf(`{"%s": "user"}`, formatQueryValue(otherAccountId))},
 				},
 				URL: &url.URL{Path: fmt.Sprintf("/accounts/%s", accountId)},
 			}
@@ -242,7 +244,7 @@ func TestAuthorizationMiddleware(t *testing.T) {
 			ctx.Request = &http.Request{
 				Header: map[string][]string{
 					"X-User-Id":       {userId},
-					"X-User-Accounts": {fmt.Sprintf(`{"%s": "user"}`, otherAccountId)},
+					"X-User-Accounts": {fmt.Sprintf(`{"%s": "user"}`, formatQueryValue(otherAccountId))},
 				},
 				URL: &url.URL{Path: fmt.Sprintf("/accounts/%s", accountId)},
 			}
@@ -440,18 +442,6 @@ func (w *FakeWriter) Status() int {
 }
 
 func formatQueryValue(queryValue string) string {
-	return strings.ReplaceAll(
-		strings.ReplaceAll(
-			strings.ReplaceAll(
-				strings.ReplaceAll(queryValue, "&", ""),
-				" ",
-				"",
-			),
-			":",
-			"",
-		),
-		",",
-		"",
-	)
-
+	escaped := url.QueryEscape(queryValue)
+	return strings.ReplaceAll(strings.ReplaceAll(escaped, "+", "%20"), "%", "")
 }

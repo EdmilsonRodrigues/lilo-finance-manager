@@ -15,7 +15,7 @@ import (
 
 	customerrors "github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/custom_errors"
 	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/middlewares"
-	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization"
+	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization/http_serialization"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,16 +35,16 @@ func TestAddParamToConditionsMiddleware(t *testing.T) {
 			middleware := middlewares.AddParamToConditionsMiddleware(paramName, columnName)
 			middleware(ctx)
 
-			conditions, exists := ctx.Get("conditions")
+			conditions := ctx.GetString("conditions")
+			conditionsValues, exists := ctx.Get("conditions_values")
 			if !exists {
-				t.Error("conditions not set in context")
+				t.Error("conditions values not set in context")
 				return false
 			}
 
-			conds, ok := conditions.(*serialization.QueryConditions)
-			if !ok {
-				t.Error("conditions not parsed correctly")
-				return false
+			cValues := make([]string, len(conditionsValues.([]interface{})))
+			for i, v := range conditionsValues.([]interface{}) {
+				cValues[i] = v.(string)
 			}
 
 			if ctx.IsAborted() {
@@ -52,7 +52,17 @@ func TestAddParamToConditionsMiddleware(t *testing.T) {
 				return false
 			}
 
-			return (*conds)[columnName] == value
+			if conditions != fmt.Sprintf("%s = ?", columnName) {
+				t.Errorf("expected %v, got %v", fmt.Sprintf("%s = ?", columnName), conditions)
+				return false
+			}
+
+			if !reflect.DeepEqual(cValues, []string{value}) {
+				t.Errorf("expected %v, got %v", []string{value}, cValues)
+				return false
+			}
+
+			return true
 		}
 
 		if err := quick.Check(assertion, &quick.Config{
@@ -75,19 +85,22 @@ func TestAddParamToConditionsMiddleware(t *testing.T) {
 				},
 			}
 			middleware := middlewares.AddParamToConditionsMiddleware(paramName, columnName)
-			initialConditions := &serialization.QueryConditions{"initialColumn": "initialValue"}
+			initialConditions := "initialColumn = ?"
 			ctx.Set("conditions", initialConditions)
+			ctx.Set("conditions_values", []interface{}{"initialValue"})
+
 			middleware(ctx)
-			conditions, exists := ctx.Get("conditions")
+
+			conditions := ctx.GetString("conditions")
+			conditionsValues, exists := ctx.Get("conditions_values")
 			if !exists {
-				t.Error("conditions not set in context")
+				t.Error("conditions values not set in context")
 				return false
 			}
 
-			conds, ok := conditions.(*serialization.QueryConditions)
-			if !ok {
-				t.Error("conditions not parsed correctly")
-				return false
+			cValues := make([]string, len(conditionsValues.([]interface{})))
+			for i, v := range conditionsValues.([]interface{}) {
+				cValues[i] = v.(string)
 			}
 
 			if ctx.IsAborted() {
@@ -95,13 +108,23 @@ func TestAddParamToConditionsMiddleware(t *testing.T) {
 				return false
 			}
 
-			return (*conds)[columnName] == value && (*conds)["initialColumn"] == "initialValue"
+			if !reflect.DeepEqual(cValues, []string{"initialValue", value}) {
+				t.Errorf("expected %v, got %v", []string{"initialValue", value}, cValues)
+				return false
+			}
+
+			if conditions != fmt.Sprintf("%s AND %s = ?", initialConditions, columnName) {
+				t.Errorf("expected %v, got %v", fmt.Sprintf("%s AND %s = ?", initialConditions, columnName), conditions)
+				return false
+			}
+
+			return true
 		}
 
 		if err := quick.Check(assertion, &quick.Config{
 			MaxCount: 1000,
 		}); err != nil {
-			t.Error("failed checks", err)
+			t.Error("failed checks for Run ", err)
 		}
 	})
 
@@ -130,7 +153,7 @@ func TestAddParamToConditionsMiddleware(t *testing.T) {
 				return false
 			}
 
-			var unmarshalledBody serialization.ErrorResponse
+			var unmarshalledBody httpserialization.ErrorResponse
 			err := json.Unmarshal(*body, &unmarshalledBody)
 			if err != nil {
 				t.Errorf("error unmarshalling body: %v", err)
@@ -256,6 +279,11 @@ func TestParsePaginationParamsMiddleware(t *testing.T) {
 
 	t.Run("should not be able to parse page_size param when it is not integers", func(t *testing.T) {
 		assertion := func(page int, pageSize string) bool {
+			pageSize = formatQueryValue(pageSize)
+			_, err := strconv.Atoi(pageSize)
+			if pageSize == "" || err == nil {
+				return true
+			}
 			ctx, body := getContext()
 			ctx.Request = &http.Request{
 				URL: &url.URL{
@@ -269,9 +297,9 @@ func TestParsePaginationParamsMiddleware(t *testing.T) {
 				t.Errorf("expected status %d, got %d", http.StatusUnprocessableEntity, ctx.Writer.Status())
 				return false
 			}
-			var unmarshalledBody serialization.ErrorResponse
-			err := json.Unmarshal(*body, &unmarshalledBody)
-			if err != nil {
+			var unmarshalledBody httpserialization.ErrorResponse
+
+			if err := json.Unmarshal(*body, &unmarshalledBody); err != nil {
 				t.Errorf("error unmarshalling body: %v", err)
 				return false
 			}
@@ -297,6 +325,11 @@ func TestParsePaginationParamsMiddleware(t *testing.T) {
 
 	t.Run("should not be able to parse page param when it is not integers", func(t *testing.T) {
 		assertion := func(page string, pageSize int) bool {
+			page = formatQueryValue(page)
+			_, err := strconv.Atoi(page)
+			if page == "" || err == nil {
+				return true
+			}
 			ctx, body := getContext()
 			ctx.Request = &http.Request{
 				URL: &url.URL{
@@ -310,9 +343,9 @@ func TestParsePaginationParamsMiddleware(t *testing.T) {
 				t.Errorf("expected status %d, got %d", http.StatusUnprocessableEntity, ctx.Writer.Status())
 				return false
 			}
-			var unmarshalledBody serialization.ErrorResponse
-			err := json.Unmarshal(*body, &unmarshalledBody)
-			if err != nil {
+			var unmarshalledBody httpserialization.ErrorResponse
+
+			if err := json.Unmarshal(*body, &unmarshalledBody); err != nil {
 				t.Errorf("error unmarshalling body: %v", err)
 				return false
 			}
@@ -340,36 +373,44 @@ func TestParsePaginationParamsMiddleware(t *testing.T) {
 func TestParseFiltersMiddleware(t *testing.T) {
 	t.Run("should be able to parse filters", func(t *testing.T) {
 		assertion := func(nameFilter, idFilter string) bool {
+			if nameFilter == "" && idFilter == "" {
+				return true
+			}
 			nameFilter = formatQueryValue(nameFilter)
 			idFilter = formatQueryValue(idFilter)
 			ctx, _ := getContext()
 			ctx.Request = &http.Request{
 				URL: &url.URL{
 					Path:     "/test",
-					RawQuery: fmt.Sprintf("filters=%s:%s,%s:%s", "name", nameFilter, "id", idFilter),
+					RawQuery: fmt.Sprintf("filters=%s:%s,%s:%s", "name", formatQueryValue(nameFilter), "id", formatQueryValue(idFilter)),
 				},
 			}
+			ctx.Set("conditions", "account_id = ?")
+			ctx.Set("conditions_values", []interface{}{"account_id"})
 			middleware := middlewares.ParseFiltersMiddleware()
 			middleware(ctx)
 
-			conditions, exists := ctx.Get("conditions")
+			conditions := ctx.GetString("conditions")
+			expectedConditions := "account_id = ? AND id = ? AND name = ?"
+			conditionsValues, exists := ctx.Get("conditions_values")
 			if !exists {
-				t.Error("filters not set in context")
+				t.Error("conditions values not set in context")
 				return false
 			}
 
-			conds, ok := conditions.(*serialization.QueryConditions)
-			if !ok {
-				t.Error("filters not in the correct format: ", conditions)
-				return false
-			}
-			expected := map[string]string{
-				"name": nameFilter,
-				"id":   idFilter,
+			cValues := make([]string, len(conditionsValues.([]interface{})))
+			for i, v := range conditionsValues.([]interface{}) {
+				cValues[i] = v.(string)
 			}
 
-			if !reflect.DeepEqual((*conds)["filters"], expected) {
-				t.Errorf("expected %v, got %v", expected, (*conds)["filters"])
+			expectedValues := []string{"account_id", formatQueryValue(idFilter), formatQueryValue(nameFilter)}
+			if !assertEqualStringSlice(cValues, expectedValues) {
+				t.Errorf("expected %v, got %v", expectedValues, cValues)
+				return false
+			}
+
+			if !assertEqualConditions(conditions, expectedConditions) {
+				t.Errorf("expected %v, got %v", expectedConditions, conditions)
 				return false
 			}
 
@@ -404,7 +445,7 @@ func TestParseFiltersMiddleware(t *testing.T) {
 				t.Errorf("expected status %d, got %d", http.StatusUnprocessableEntity, ctx.Writer.Status())
 				return false
 			}
-			var unmarshalledBody serialization.ErrorResponse
+			var unmarshalledBody httpserialization.ErrorResponse
 			err := json.Unmarshal(*body, &unmarshalledBody)
 			if err != nil {
 				t.Errorf("error unmarshalling body: %v", err)
@@ -510,53 +551,32 @@ func TestParseReturnFieldsMiddleware(t *testing.T) {
 	})
 }
 
-func getContext() (*gin.Context, *[]byte) {
-	writer := &FakeWriter{
-		HeadersMapping: make(http.Header),
-		Body:           []byte{},
+func assertEqualConditions(conditions1, conditions2 string) bool {
+	if conditions1 == conditions2 {
+		return true
 	}
-	ctx, _ := gin.CreateTestContext(writer)
-	return ctx, &writer.Body
+	c1 := strings.Split(conditions1, " AND ")
+	c2 := strings.Split(conditions2, " AND ")
+	return assertEqualStringSlice(c1, c2)
 }
 
-type FakeWriter struct {
-	gin.ResponseWriter
-
-	StatusCode     int
-	HeadersMapping http.Header
-	Body           []byte
+func assertEqualStringSlice(slice1, slice2 []string) bool {
+	if len(slice1) != len(slice2) {
+		return false
+	}
+	for i := range slice1 {
+		if !contains(slice2, slice1[i]) {
+			return false
+		}
+	}
+	return true
 }
 
-func (w *FakeWriter) WriteHeader(code int) {
-	w.StatusCode = code
-}
-
-func (w *FakeWriter) Header() http.Header {
-	return w.HeadersMapping
-}
-
-func (w *FakeWriter) Write(b []byte) (int, error) {
-	w.Body = append(w.Body, b...)
-	return len(b), nil
-}
-
-func (w *FakeWriter) Status() int {
-	return w.StatusCode
-}
-
-func formatQueryValue(queryValue string) string {
-	return strings.ReplaceAll(
-		strings.ReplaceAll(
-			strings.ReplaceAll(
-				strings.ReplaceAll(queryValue, "&", ""),
-				" ",
-				"",
-			),
-			":",
-			"",
-		),
-		",",
-		"",
-	)
-
+func contains(slice []string, item string) bool {
+	for _, v := range slice {
+		if v == item {
+			return true
+		}
+	}
+	return false
 }

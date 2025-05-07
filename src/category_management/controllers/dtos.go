@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/category_management/models"
-	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization"
+	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization/http_serialization"
 )
 
 type CategoryResponse struct {
@@ -51,12 +51,33 @@ func (category *CategoryResponse) BindModel(model interface{}) error {
 	return nil
 }
 
-func (category *CategoryResponse) Marshal(fields []string) (serialization.JSONResponse, error) {
-	data, err := serialization.FilterSerializerFields(category, fields)
+// Marshal implements the httpserialization.Marshaler interface.
+// It returns a JSONResponse containing the serialized fields of this CategoryResponse
+// that are included in the given fields slice.
+// If the fields slice is empty, all fields are included.
+// If the fields slice contains invalid field names, an error is returned.
+// The response has a status of "success".
+//
+// Parameters:
+//   - fields ([]string): the fields to include in the response
+//
+// Returns:
+//   - httpserialization.JSONResponse: the response containing the serialized fields
+//   - error: an error if the fields slice contains invalid field names
+//
+// Example:
+//
+//	response, err := category.Marshal([]string{"id", "name"})
+//	if err != nil {
+//	  ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+//	  return
+//	}
+func (category *CategoryResponse) Marshal(fields []string) (httpserialization.JSONResponse, error) {
+	data, err := httpserialization.FilterSerializerFields(category, fields)
 	if err != nil {
-		return serialization.JSONResponse{}, err
+		return httpserialization.JSONResponse{}, err
 	}
-	return serialization.JSONResponse{
+	return httpserialization.JSONResponse{
 		Status: "success",
 		Data:   data,
 	}, nil

@@ -1,14 +1,16 @@
+TAGS="-v"
+
 .PHONY: e2e-test
 e2e-test:
-	go test -v -tags=e2e ./...
+	GIN_MODE=release go test ${TAGS} -tags=e2e ./...
 
 .PHONY: integration-test
 integration-test:
-	go test -v -tags=integration ./...
+	GIN_MODE=release go test ${TAGS} -tags=integration ./...
 
 .PHONY: unit-test
 unit-test:
-	go test -v -tags=unit ./...
+	GIN_MODE=release go test ${TAGS} -tags=unit ./...
 
 
 .PHONY: test
