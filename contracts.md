@@ -244,7 +244,7 @@ Future:
 
 Headers:
 - X-Account-ID: int (All requests must include this header. All requests are scoped to a specific account.)
-- X-User-ID: int (All requests must include this header.)
+- X-User-Id: int (All requests must include this header.)
 - X-User-Roles: list[str] (All requests must include this header. Used for authorization.)
 
 ## Endpoints

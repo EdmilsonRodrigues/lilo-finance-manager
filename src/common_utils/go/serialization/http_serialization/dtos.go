@@ -1,4 +1,4 @@
-package main
+package httpserialization
 
 type QueryConditions map[string]interface{}
 type DataItem map[string]interface{}
@@ -13,7 +13,7 @@ type ErrorDetails struct {
 }
 
 type JSONResponse struct {
-	Status string    `json:"status"`
+	Status string   `json:"status"`
 	Data   DataItem `json:"data"`
 }
 
@@ -23,10 +23,10 @@ type PaginatedJSONResponse struct {
 }
 
 type PaginatedResponse struct {
-	Page       int                 `json:"page"`
-	Total      int                 `json:"total_pages"`
-	Size       int                 `json:"page_size"`
-	TotalItems int                 `json:"total_items"`
-	Filters    QueryConditions     `json:"filters"`
-	Items      []DataItem `json:"items"`
+	Page       int               `json:"page"`
+	Total      int               `json:"total_pages"`
+	Size       int               `json:"page_size"`
+	TotalItems int               `json:"total_items"`
+	Filters    map[string]string `json:"filters"`
+	Items      []DataItem        `json:"items"`
 }

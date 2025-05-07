@@ -1,4 +1,4 @@
-package main
+package httpserialization
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 )
 
 type Marshaler interface {
-	Marshal(filters QueryConditions) (JSONResponse, error)
+	Marshal(filters []string) (JSONResponse, error)
 }
 
 type ModelBinder interface {
@@ -67,7 +67,7 @@ func BindArray[ResponseType Serializer, ModelType any](models []ModelType) ([]Re
 // Returns:
 //   - PaginatedJSONResponse: the structured response containing pagination details and items
 //   - error: an error if any occurs during response creation
-func CreatePaginatedResponse(page, size, total int, filters QueryConditions, items []Serializer, fields []string) (PaginatedJSONResponse, error) {
+func CreatePaginatedResponse(page, size, total int, filters map[string]string, items []Serializer, fields []string) (PaginatedJSONResponse, error) {
 	totalPages := 0
 	if size > 0 {
 		totalPages = (total + size - 1) / size

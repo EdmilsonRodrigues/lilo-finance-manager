@@ -11,6 +11,7 @@ jobs:
             service:
               - common_utils/python/messaging
               - user_management
+              - category_management
         steps:
         - uses: actions/checkout@v4
 

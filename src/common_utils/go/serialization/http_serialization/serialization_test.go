@@ -1,18 +1,18 @@
-package serialization_test
+package httpserialization_test
 
 import (
 	"fmt"
 	"testing"
 	"testing/quick"
 
-	"github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization"
+	http_serialization "github.com/EdmilsonRodrigues/lilo-finance-manager/src/common_utils/go/serialization/http_serialization"
 )
 
 func TestBindArray(t *testing.T) {
 	t.Run("should successfully bind array", func(t *testing.T) {
 		assertion := func(value string, value2 string) bool {
 			model := TestModel{Value: value, Value2: value2}
-			response, err := serialization.BindArray[*TestSerializer]([]TestModel{model})
+			response, err := http_serialization.BindArray[*TestSerializer]([]TestModel{model})
 			if err != nil {
 				t.Error(err)
 				return false
@@ -40,7 +40,7 @@ func TestBindArray(t *testing.T) {
 
 	t.Run("should fail to bind array if model is not expected", func(t *testing.T) {
 		assertion := func(value string) bool {
-			_, err := serialization.BindArray[*TestSerializer]([]any{value})
+			_, err := http_serialization.BindArray[*TestSerializer]([]any{value})
 			if err == nil {
 				t.Error("expected error, got nil")
 				return false
@@ -60,7 +60,7 @@ func TestFilterSerializerFields(t *testing.T) {
 		assertion := func(value string, value2 string) bool {
 			serializer := TestSerializer{Value: value, Value2: value2}
 			fields := []string{"value"}
-			filtered, err := serialization.FilterSerializerFields(&serializer, fields)
+			filtered, err := http_serialization.FilterSerializerFields(&serializer, fields)
 			if err != nil {
 				t.Error(err)
 				return false
@@ -89,7 +89,7 @@ func TestFilterSerializerFields(t *testing.T) {
 	t.Run("should return all if fields is empty", func(t *testing.T) {
 		assertion := func(value string, value2 string) bool {
 			serializer := TestSerializer{Value: value, Value2: value2}
-			filtered, err := serialization.FilterSerializerFields(&serializer, []string{})
+			filtered, err := http_serialization.FilterSerializerFields(&serializer, []string{})
 			if err != nil {
 				t.Error(err)
 				return false
@@ -119,7 +119,7 @@ func TestFilterSerializerFields(t *testing.T) {
 func TestCreatePaginatedResponse(t *testing.T) {
 	t.Run("should create paginated response", func(t *testing.T) {
 		assertion := func(value string, value2 string) bool {
-			response, err := serialization.CreatePaginatedResponse(1, 10, 100, serialization.QueryConditions{}, []serialization.Serializer{&TestSerializer{Value: value, Value2: value2}}, []string{})
+			response, err := http_serialization.CreatePaginatedResponse(1, 10, 100, http_serialization.QueryConditions{}, []http_serialization.Serializer{&TestSerializer{Value: value, Value2: value2}}, []string{})
 			if err != nil {
 				t.Error(err)
 				return false
@@ -168,7 +168,7 @@ func TestCreatePaginatedResponse(t *testing.T) {
 	t.Run("should create paginated response with no size", func(t *testing.T) {
 		assertion := func() bool {
 
-			response, err := serialization.CreatePaginatedResponse(0,0,0, serialization.QueryConditions{}, []serialization.Serializer{}, []string{"Value", "Value2"})
+			response, err := http_serialization.CreatePaginatedResponse(0,0,0, http_serialization.QueryConditions{}, []http_serialization.Serializer{}, []string{"Value", "Value2"})
 			if err != nil {
 				t.Error(err)
 				return false
@@ -216,10 +216,10 @@ type TestModel struct {
 	Value2 string
 }
 
-func (s *TestSerializer) Marshal(filters serialization.QueryConditions) (serialization.JSONResponse, error) {
-	return serialization.JSONResponse{
+func (s *TestSerializer) Marshal(filters []string) (http_serialization.JSONResponse, error) {
+	return http_serialization.JSONResponse{
 		Status: "success",
-		Data: serialization.DataItem{
+		Data: http_serialization.DataItem{
 			"value":  s.Value,
 			"value2": s.Value2,
 		},
